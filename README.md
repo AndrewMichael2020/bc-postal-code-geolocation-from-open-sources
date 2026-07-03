@@ -55,7 +55,7 @@ The committed dataset is the free/open reconstruction. It has not been cleaned o
 
 Imagine North Cascadia Health, a regional operator responsible for moving **patients, nurses, lab samples, and mobile equipment** across British Columbia. On Monday morning, the executive team is reviewing a proposed expansion of mobile care teams. Demand has grown, routes have been stretched, and managers are using a mix of planning assumptions, drive-time rules of thumb, and postal-code service zones to decide where staff should go next. The finance team wants better utilization. Operations wants fewer missed visits and less windshield time. The clinical team wants faster access for patients who cannot easily travel.
 
-Then a planner asks the uncomfortable questions: ***“Are our routes actually optimized? Did our service plan creep as we expanded? Are the postal codes behind these decisions in the right place?”***
+Then a planner asks the uncomfortable questions: ***“Are our routes actually optimized? Did our service plan creep as we expanded?”***
 
 The room gets quiet because the answer is not obvious. Postal-code geolocation is usually treated as plumbing, but in routing and service planning it behaves like **strategy**. A postal code placed on the wrong side of a mountain pass can make a service area look *reachable when it is not*. A rural code represented by a broad centroid can hide the distance between a highway community and a remote settlement. A stale commercial lookup can quietly preserve a delivery pattern that no longer exists. These errors do not announce themselves as data-quality problems. They show up later as **missed appointments, unrealistic staffing assumptions, uneven access, and budget variance**.
 
