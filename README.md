@@ -63,7 +63,9 @@ For teams doing planning, routing, public-service analysis, retail coverage, or 
 
 ## Source Lineage
 
-Selection lineage for the committed dataset:
+Every row in the public CSV is chosen from the source-comparison table. In plain language, the workflow asks: “Which source gave us the best available coordinate for this postal code, and how much did the other sources agree with it?”
+
+Selection lineage means the source that supplied the coordinate ultimately written to `data/bc_postal_codes_geolocated.csv`:
 
 | Selected source | Rows |
 | --- | ---: |
@@ -72,7 +74,13 @@ Selection lineage for the committed dataset:
 | Statistics Canada ODA BC | 6,878 |
 | OpenAddresses BC public layers | 4,766 |
 
-Coordinate methodology:
+Coordinate methodology explains what kind of coordinate was selected:
+
+- `GeoNames postal-code coordinate`: GeoNames already had a latitude/longitude for that postal code. This gives broad coverage, but some coordinates are estimated.
+- `Exact medoid address point`: multiple address points existed for the postal code; the script picked the real address point closest to the middle of that cluster.
+- `Single address point`: only one address point was available, so that point became the coordinate.
+- `Centroid-nearest address point`: many address points existed; the script found the average center and selected the real address point nearest that center.
+- `GeoNames duplicate exact medoid address point`: multiple GeoNames rows existed for the same postal code and were collapsed with the same medoid-style rule.
 
 | Methodology | Rows |
 | --- | ---: |
@@ -82,7 +90,14 @@ Coordinate methodology:
 | Centroid-nearest address point | 289 |
 | GeoNames duplicate exact medoid address point | 62 |
 
-Disagreement class:
+Disagreement class describes how much the available sources disagreed for the same postal code:
+
+- `Single source`: only one source had evidence, so there was nothing to compare.
+- `Agree`: multiple sources were within 250 metres.
+- `Minor`: sources differed by more than 250 metres but no more than 1 kilometre.
+- `Major`: sources differed by more than 1 kilometre but no more than 10 kilometres.
+- `Severe`: sources differed by more than 10 kilometres.
+- `Missing from GeoNames seed`: the postal code was found in another free/open source but not in GeoNames.
 
 | Class | Rows |
 | --- | ---: |
@@ -174,16 +189,25 @@ python scripts/run_greenfield_workflow.py --download-osm-pbf --skip-google --ref
 
 Google Maps Geocoding can be used to clean and adjudicate risky rows locally, but the resulting latitude/longitude values are not part of the presented dataset in this repository.
 
+As of the current Google Maps Platform pricing page checked on July 3, 2026, Geocoding is an `Essentials` SKU with **10,000 free billable events per month**. Usage is calculated monthly across projects linked to the billing account; after the free monthly cap, Geocoding is billed per 1,000 events using tiered pricing. Google’s Geocoding usage page also states that billing must be enabled and requests must include an API key or OAuth token. The Geocoding API has a per-minute usage restriction; Google’s usage page currently describes a 3,000 queries-per-minute limit. Always confirm the current pricing page before running a new batch.
+
+Storage and use rules matter. Google’s Geocoding policy says content pre-fetching, caching, or storage is generally restricted, with place IDs called out as the main exception. That is why this repository documents Google as a local cleaning process but does not publish Google-derived latitude/longitude values.
+
 Recommended local process:
 
-1. Run the free/open reconstruction first.
-2. Generate Google targets without spending API calls.
-3. Review target counts against the monthly ledger and budget.
-4. Execute the capped pass only if the target set is acceptable.
-5. Reject province-only Google results.
-6. Mark FSA-prefix results as approximate rather than full-postal-code evidence.
-7. Write Google-adjudicated outputs only to ignored local paths.
-8. Keep the committed `data/bc_postal_codes_geolocated.csv` as the free/open dataset unless you have independently reviewed publication rights for any additional source.
+1. Create or select a Google Cloud project.
+2. Enable billing for that project. Google requires billing even when you plan to stay inside the free monthly event allowance.
+3. Enable the Geocoding API for the project.
+4. Create an API key, restrict it to the Geocoding API, and apply any practical application restrictions for your environment.
+5. Put the key in a local `.env` file as `GOOGLE_MAPS_API_KEY=...`; do not commit the key.
+6. Run the free/open reconstruction first.
+7. Generate Google targets without spending API calls.
+8. Review target counts against `work/google_maps_geocoding/google_maps_geocoding_ledger.csv`, the monthly budget, and the 10,000-event free monthly cap.
+9. Execute the capped pass only if the target set is acceptable.
+10. Reject province-only Google results.
+11. Mark FSA-prefix results as approximate rather than full-postal-code evidence.
+12. Write Google-adjudicated outputs only to ignored local paths.
+13. Keep the committed `data/bc_postal_codes_geolocated.csv` as the free/open dataset unless you have independently reviewed publication rights for any additional source.
 
 ```bash
 python scripts/google_maps_adjudicate_postal_codes.py --stable-qa-limit 1000
@@ -192,7 +216,7 @@ python scripts/google_maps_adjudicate_postal_codes.py --stable-qa-limit 1000 --e
 
 Guardrails:
 
-- hard cap: `9,000` requests per calendar month
+- project script hard cap: `9,000` requests per calendar month, leaving a 1,000-event cushion below the 10,000-event free monthly allowance
 - ledger: `work/google_maps_geocoding/google_maps_geocoding_ledger.csv`
 - province-only results are rejected
 - FSA-prefix results are retained only as approximate local evidence
