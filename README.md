@@ -72,14 +72,14 @@ The counts below separate two different ideas:
 
 That distinction matters for GeoNames. GeoNames supplied evidence for 122,334 postal codes in the final comparison universe. Of those, 102,027 kept the GeoNames coordinate, while 20,307 were present in GeoNames but were assigned a coordinate from OSM, Statistics Canada ODA, or OpenAddresses because that evidence ranked better for the row. Another 710 postal codes were found only outside GeoNames, bringing the public dataset to 123,044 rows.
 
-Selection lineage means the source that supplied the coordinate ultimately written to `data/bc_postal_codes_geolocated.csv`:
+Selection lineage means the source that supplied the coordinate ultimately written to `data/bc_postal_codes_geolocated.csv`. These are **final selection counts**, not import counts:
 
-| Selected source | Rows |
+| Final coordinate selected from | Rows selected |
 | --- | ---: |
-| GeoNames CA full postal-code dump | 102,027 |
-| OpenStreetMap Geofabrik BC extract | 9,373 |
-| Statistics Canada ODA BC | 6,878 |
-| OpenAddresses BC public layers | 4,766 |
+| GeoNames coordinate retained from imported evidence | 102,027 |
+| OSM/Geofabrik coordinate selected over alternatives | 9,373 |
+| Statistics Canada ODA coordinate selected over alternatives | 6,878 |
+| OpenAddresses coordinate selected over alternatives | 4,766 |
 
 Coordinate methodology explains what kind of coordinate was selected:
 
