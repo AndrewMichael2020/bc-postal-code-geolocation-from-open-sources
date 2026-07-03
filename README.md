@@ -65,6 +65,13 @@ For teams doing planning, routing, public-service analysis, retail coverage, or 
 
 Every row in the public CSV is chosen from the source-comparison table. In plain language, the workflow asks: “Which source gave us the best available coordinate for this postal code, and how much did the other sources agree with it?”
 
+The counts below separate two different ideas:
+
+- `Imported evidence` means “this source had a usable coordinate for that postal code.”
+- `Selected source` means “this source supplied the coordinate that was written to the final CSV.”
+
+That distinction matters for GeoNames. GeoNames supplied evidence for 122,334 postal codes in the final comparison universe. Of those, 102,027 kept the GeoNames coordinate, while 20,307 were present in GeoNames but were assigned a coordinate from OSM, Statistics Canada ODA, or OpenAddresses because that evidence ranked better for the row. Another 710 postal codes were found only outside GeoNames, bringing the public dataset to 123,044 rows.
+
 Selection lineage means the source that supplied the coordinate ultimately written to `data/bc_postal_codes_geolocated.csv`:
 
 | Selected source | Rows |
