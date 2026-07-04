@@ -1,7 +1,11 @@
-import { assignClusters, buildFsaClusters, comparePlans } from "./analytics.js?v=full-network-20260704";
+import {
+  applyDemandToClusters,
+  assignClusters,
+  comparePlans,
+} from "./analytics.js?v=perf-fsa-20260704";
 
 const state = {
-  postalCodes: [],
+  baseClusters: [],
   clusters: [],
   hubs: [],
   summary: null,
@@ -22,6 +26,7 @@ const state = {
     fsa: null,
     hubs: null,
   },
+  recalculateTimer: null,
 };
 
 const formatNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 0 });
@@ -37,13 +42,19 @@ const formatPercent = new Intl.NumberFormat("en-CA", {
 const map = L.map("map", {
   preferCanvas: true,
   zoomControl: false,
+  fadeAnimation: false,
+  markerZoomAnimation: false,
+  zoomAnimation: false,
 }).setView([49.205, -122.72], 9);
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
+  keepBuffer: 1,
+  updateWhenIdle: true,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
+const fsaRenderer = L.canvas({ padding: 0.5 });
 
 function setText(id, value) {
   document.getElementById(id).textContent = value;
@@ -81,7 +92,7 @@ function renderHubControls() {
         checkbox.checked = true;
       }
       state.isReallocated = false;
-      recalculatePlans();
+      recalculatePlans({ renderMapNow: true });
     });
     const span = document.createElement("span");
     span.textContent = hub.name;
@@ -91,18 +102,13 @@ function renderHubControls() {
 }
 
 function renderMap(result) {
-  if (state.layers.fsa) {
-    state.layers.fsa.remove();
-  }
-  if (state.layers.hubs) {
-    state.layers.hubs.remove();
-  }
+  state.layers.fsa.clearLayers();
+  state.layers.hubs.clearLayers();
 
-  state.layers.fsa = L.layerGroup();
   for (const fsa of result.fsaSummaries) {
     const radius = Math.max(5, Math.min(20, Math.sqrt(fsa.postalCodeCount) * 0.55));
     L.circleMarker([fsa.latitude, fsa.longitude], {
-      renderer: L.canvas(),
+      renderer: fsaRenderer,
       radius,
       color: "#111827",
       weight: 1,
@@ -116,10 +122,8 @@ function renderMap(result) {
       )
       .addTo(state.layers.fsa);
   }
-  state.layers.fsa.addTo(map);
 
   const visibleHubIds = new Set(result.summaries.map((summary) => summary.hub.id));
-  state.layers.hubs = L.layerGroup();
   for (const hub of state.hubs.filter((item) => visibleHubIds.has(item.id))) {
     const icon = L.divIcon({
       className: "hub-marker",
@@ -131,7 +135,6 @@ function renderMap(result) {
       .bindPopup(`<strong>${hub.name}</strong><br>${hub.municipality}`)
       .addTo(state.layers.hubs);
   }
-  state.layers.hubs.addTo(map);
 }
 
 function renderKpis(result) {
@@ -213,9 +216,9 @@ function renderComparison() {
   );
 }
 
-function recalculatePlans() {
+function recalculatePlans({ renderMapNow = true } = {}) {
   readControls();
-  state.clusters = buildFsaClusters(state.postalCodes, state.controls);
+  state.clusters = applyDemandToClusters(state.baseClusters, state.controls);
   state.optimizedHubIds = new Set(state.hubs.map((hub) => hub.id));
   const currentOptions = {
     ...state.controls,
@@ -233,17 +236,30 @@ function recalculatePlans() {
   renderTable(result);
   renderNarrative(result);
   renderComparison();
-  renderMap(result);
+  if (renderMapNow) {
+    requestAnimationFrame(() => renderMap(result));
+  }
+}
+
+function scheduleRecalculatePlans() {
+  readControls();
+  if (state.recalculateTimer) {
+    window.clearTimeout(state.recalculateTimer);
+  }
+  state.recalculateTimer = window.setTimeout(() => {
+    state.recalculateTimer = null;
+    recalculatePlans({ renderMapNow: true });
+  }, 120);
 }
 
 function reallocateNow() {
   state.isReallocated = true;
-  recalculatePlans();
+  recalculatePlans({ renderMapNow: true });
 }
 
 function resetToInitialPlan() {
   state.isReallocated = false;
-  recalculatePlans();
+  recalculatePlans({ renderMapNow: true });
 }
 
 async function loadJson(path) {
@@ -255,18 +271,20 @@ async function loadJson(path) {
 }
 
 async function init() {
-  const [postalCodes, hubs, summary] = await Promise.all([
-    loadJson("./data/lower-mainland-postal-codes.json"),
+  const [baseClusters, hubs, summary] = await Promise.all([
+    loadJson("./data/lower-mainland-fsa-clusters.json"),
     loadJson("./data/service-hubs.json"),
     loadJson("./data/demo-summary.json"),
   ]);
-  state.postalCodes = postalCodes;
+  state.baseClusters = baseClusters;
   state.hubs = hubs;
   state.summary = summary;
   state.activeHubIds = new Set(hubs.map((hub) => hub.id));
+  state.layers.fsa = L.layerGroup().addTo(map);
+  state.layers.hubs = L.layerGroup().addTo(map);
   renderHubControls();
   for (const input of document.querySelectorAll("input[type='range']")) {
-    input.addEventListener("input", recalculatePlans);
+    input.addEventListener("input", scheduleRecalculatePlans);
   }
   document.getElementById("reallocateButton").addEventListener("click", reallocateNow);
   document.getElementById("resetButton").addEventListener("click", resetToInitialPlan);

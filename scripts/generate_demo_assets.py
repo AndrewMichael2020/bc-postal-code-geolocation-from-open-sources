@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_CSV = ROOT / "data" / "bc_postal_codes_geolocated.csv"
 DEMO_DATA_DIR = ROOT / "demo" / "data"
 POSTAL_OUTPUT = DEMO_DATA_DIR / "lower-mainland-postal-codes.json"
+FSA_CLUSTER_OUTPUT = DEMO_DATA_DIR / "lower-mainland-fsa-clusters.json"
 HUBS_OUTPUT = DEMO_DATA_DIR / "service-hubs.json"
 SUMMARY_OUTPUT = DEMO_DATA_DIR / "demo-summary.json"
 
@@ -187,6 +188,46 @@ def read_lower_mainland_rows() -> list[dict[str, object]]:
     return sorted(rows, key=lambda row: str(row["postal_code"]))
 
 
+def build_fsa_clusters(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    clusters: dict[str, dict[str, object]] = {}
+    for row in rows:
+        fsa = str(row["fsa"])
+        cluster = clusters.setdefault(
+            fsa,
+            {
+                "fsa": fsa,
+                "postalCodeCount": 0,
+                "latitudeTotal": 0.0,
+                "longitudeTotal": 0.0,
+                "segments": {"urban": 0, "suburban": 0, "rural": 0},
+            },
+        )
+        cluster["postalCodeCount"] = int(cluster["postalCodeCount"]) + 1
+        cluster["latitudeTotal"] = float(cluster["latitudeTotal"]) + float(row["latitude"])
+        cluster["longitudeTotal"] = float(cluster["longitudeTotal"]) + float(row["longitude"])
+        segments = cluster["segments"]
+        assert isinstance(segments, dict)
+        segment = str(row["segment"])
+        segments[segment] = int(segments[segment]) + 1
+
+    output = []
+    for cluster in clusters.values():
+        count = int(cluster["postalCodeCount"])
+        output.append(
+            {
+                "demand": 0,
+                "fsa": cluster["fsa"],
+                "latitude": round(float(cluster["latitudeTotal"]) / count, 6),
+                "latitudeTotal": round(float(cluster["latitudeTotal"]), 6),
+                "longitude": round(float(cluster["longitudeTotal"]) / count, 6),
+                "longitudeTotal": round(float(cluster["longitudeTotal"]), 6),
+                "postalCodeCount": count,
+                "segments": cluster["segments"],
+            }
+        )
+    return sorted(output, key=lambda row: str(row["fsa"]))
+
+
 def write_json(path: Path, payload: object, *, compact: bool = False) -> None:
     if compact:
         serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True)
@@ -198,6 +239,7 @@ def write_json(path: Path, payload: object, *, compact: bool = False) -> None:
 def main() -> None:
     DEMO_DATA_DIR.mkdir(parents=True, exist_ok=True)
     rows = read_lower_mainland_rows()
+    fsa_clusters = build_fsa_clusters(rows)
     fsa_counts = Counter(str(row["fsa"]) for row in rows)
     segment_counts = Counter(str(row["segment"]) for row in rows)
     summary = {
@@ -214,9 +256,11 @@ def main() -> None:
         ),
     }
     write_json(POSTAL_OUTPUT, rows, compact=True)
+    write_json(FSA_CLUSTER_OUTPUT, fsa_clusters, compact=True)
     write_json(HUBS_OUTPUT, SERVICE_HUBS)
     write_json(SUMMARY_OUTPUT, summary)
     print(f"wrote {POSTAL_OUTPUT.relative_to(ROOT)} ({len(rows):,} rows)")
+    print(f"wrote {FSA_CLUSTER_OUTPUT.relative_to(ROOT)} ({len(fsa_clusters):,} clusters)")
     print(f"wrote {HUBS_OUTPUT.relative_to(ROOT)} ({len(SERVICE_HUBS):,} hubs)")
     print(f"wrote {SUMMARY_OUTPUT.relative_to(ROOT)}")
 

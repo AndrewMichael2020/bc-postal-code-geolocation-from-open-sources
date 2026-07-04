@@ -54,23 +54,20 @@ export function percentile(values, percentileRank) {
   return sorted[index];
 }
 
-export function buildFsaClusters(postalCodes, options) {
+export function buildBaseFsaClusters(postalCodes) {
   const clusters = new Map();
   for (const postalCode of postalCodes) {
     if (!clusters.has(postalCode.fsa)) {
       clusters.set(postalCode.fsa, {
         fsa: postalCode.fsa,
         postalCodeCount: 0,
-        demand: 0,
         latitudeTotal: 0,
         longitudeTotal: 0,
         segments: { urban: 0, suburban: 0, rural: 0 },
       });
     }
     const cluster = clusters.get(postalCode.fsa);
-    const demand = options.baseDemand * segmentDemandWeight(postalCode.segment, options);
     cluster.postalCodeCount += 1;
-    cluster.demand += demand;
     cluster.latitudeTotal += postalCode.latitude;
     cluster.longitudeTotal += postalCode.longitude;
     cluster.segments[postalCode.segment] += 1;
@@ -78,10 +75,26 @@ export function buildFsaClusters(postalCodes, options) {
   return [...clusters.values()]
     .map((cluster) => ({
       ...cluster,
+      demand: 0,
       latitude: cluster.latitudeTotal / cluster.postalCodeCount,
       longitude: cluster.longitudeTotal / cluster.postalCodeCount,
     }))
     .sort((a, b) => a.fsa.localeCompare(b.fsa));
+}
+
+export function applyDemandToClusters(baseClusters, options) {
+  return baseClusters.map((cluster) => ({
+    ...cluster,
+    demand:
+      options.baseDemand *
+      (cluster.segments.urban * options.urbanMultiplier +
+        cluster.segments.suburban +
+        cluster.segments.rural * options.ruralMultiplier),
+  }));
+}
+
+export function buildFsaClusters(postalCodes, options) {
+  return applyDemandToClusters(buildBaseFsaClusters(postalCodes), options);
 }
 
 export function inheritedPlanHub(cluster, activeHubs) {

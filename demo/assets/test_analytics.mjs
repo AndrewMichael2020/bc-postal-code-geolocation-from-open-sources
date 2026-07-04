@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import {
   allocatePostalCodes,
+  applyDemandToClusters,
   assignClusters,
+  buildBaseFsaClusters,
   buildFsaClusters,
   comparePlans,
   haversineKm,
@@ -76,6 +78,14 @@ const clusters = buildFsaClusters(
     ruralMultiplier: 1,
   }
 );
+const baseClusters = buildBaseFsaClusters(postalCodes);
+const demandedClusters = applyDemandToClusters(baseClusters, {
+  baseDemand: 1,
+  urbanMultiplier: 1.2,
+  ruralMultiplier: 0.7,
+});
+assert.equal(baseClusters.length, 3);
+assert.equal(demandedClusters.find((cluster) => cluster.fsa === "V6B").demand, 1.2);
 assert.equal(clusters.length, 3);
 assert.equal(clusters.find((cluster) => cluster.fsa === "V6B").postalCodeCount, 2);
 

@@ -11,6 +11,7 @@ from generate_demo_assets import LOWER_MAINLAND_BOUNDS, read_lower_mainland_rows
 
 ROOT = Path(__file__).resolve().parents[1]
 POSTAL_ASSET = ROOT / "demo" / "data" / "lower-mainland-postal-codes.json"
+FSA_CLUSTER_ASSET = ROOT / "demo" / "data" / "lower-mainland-fsa-clusters.json"
 HUB_ASSET = ROOT / "demo" / "data" / "service-hubs.json"
 SUMMARY_ASSET = ROOT / "demo" / "data" / "demo-summary.json"
 
@@ -37,8 +38,16 @@ def test_demo_postal_asset_shape() -> None:
 
 
 def test_demo_hubs_and_summary() -> None:
+    fsa_clusters = json.loads(FSA_CLUSTER_ASSET.read_text(encoding="utf-8"))
     hubs = json.loads(HUB_ASSET.read_text(encoding="utf-8"))
     summary = json.loads(SUMMARY_ASSET.read_text(encoding="utf-8"))
+    assert len(fsa_clusters) == summary["fsa_count"]
+    assert fsa_clusters == sorted(fsa_clusters, key=lambda row: row["fsa"])
+    for cluster in fsa_clusters:
+        assert {"fsa", "postalCodeCount", "latitude", "longitude", "segments"} <= set(cluster)
+        assert sum(cluster["segments"].values()) == cluster["postalCodeCount"]
+        assert LOWER_MAINLAND_BOUNDS["min_lat"] <= cluster["latitude"] <= LOWER_MAINLAND_BOUNDS["max_lat"]
+        assert LOWER_MAINLAND_BOUNDS["min_lon"] <= cluster["longitude"] <= LOWER_MAINLAND_BOUNDS["max_lon"]
     assert len(hubs) == 7
     assert summary["hub_count"] == len(hubs)
     assert summary["postal_code_count"] > 50_000

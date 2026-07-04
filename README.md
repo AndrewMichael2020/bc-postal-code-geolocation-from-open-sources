@@ -60,7 +60,7 @@ The repository includes a static GitHub Pages demo for a fictional Lower Mainlan
 
 The demo is an executive operations workspace, not a raw map dump. It asks: “Where should mobile teams be based, and which postal-code areas should each team cover?” It starts with an inherited service plan, shows initial workload and travel-proxy stats, then lets the user click **Reallocate now** to redraw FSA-level clusters across candidate hubs and compare before/after results.
 
-The demo uses only public free/open data from this repository. Its static asset at `demo/data/lower-mainland-postal-codes.json` is generated from the canonical root dataset at `data/bc_postal_codes_geolocated.csv`; it is not a separate source of truth and does not include Google-derived coordinates. The demo subset currently contains **71,255** postal-code rows and **7** fictional service hubs.
+The demo uses only public free/open data from this repository. Its static assets are generated from the canonical root dataset at `data/bc_postal_codes_geolocated.csv`; they are not separate sources of truth and do not include Google-derived coordinates. The demo keeps a row-level transparency file with **71,255** postal-code rows, but the browser loads a compact **113 FSA-cluster** file for speed, plus **7** fictional service hubs.
 
 Regenerate the demo assets after refreshing the canonical CSV:
 
