@@ -252,6 +252,18 @@ function scheduleRecalculatePlans() {
   }, 120);
 }
 
+function stepControl(controlId, direction) {
+  const input = document.getElementById(controlId);
+  const step = Number(input.step || 1);
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const current = Number(input.value);
+  const decimals = (input.step.split(".")[1] || "").length;
+  const next = Math.min(max, Math.max(min, current + step * direction));
+  input.value = next.toFixed(decimals);
+  scheduleRecalculatePlans();
+}
+
 function reallocateNow() {
   state.isReallocated = true;
   recalculatePlans({ renderMapNow: true });
@@ -285,6 +297,11 @@ async function init() {
   renderHubControls();
   for (const input of document.querySelectorAll("input[type='range']")) {
     input.addEventListener("input", scheduleRecalculatePlans);
+  }
+  for (const button of document.querySelectorAll(".stepper")) {
+    button.addEventListener("click", () => {
+      stepControl(button.dataset.control, Number(button.dataset.step));
+    });
   }
   document.getElementById("reallocateButton").addEventListener("click", reallocateNow);
   document.getElementById("resetButton").addEventListener("click", resetToInitialPlan);

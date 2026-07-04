@@ -103,23 +103,43 @@
           <h2>Assumptions</h2>
           <div class="control">
             <label for="baseDemand">Base visits per postal code <output id="baseDemandValue">0.9</output></label>
-            <input id="baseDemand" type="range" min="0.2" max="2.2" value="0.9" step="0.1" />
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="baseDemand" data-step="-1" aria-label="Decrease base visits per postal code">−</button>
+              <input id="baseDemand" type="range" min="0.2" max="2.2" value="0.9" step="0.1" />
+              <button class="stepper" type="button" data-control="baseDemand" data-step="1" aria-label="Increase base visits per postal code">+</button>
+            </div>
           </div>
           <div class="control">
             <label for="urbanMultiplier">Urban demand multiplier <output id="urbanMultiplierValue">1.18</output></label>
-            <input id="urbanMultiplier" type="range" min="0.6" max="1.8" value="1.18" step="0.02" />
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="urbanMultiplier" data-step="-1" aria-label="Decrease urban demand multiplier">−</button>
+              <input id="urbanMultiplier" type="range" min="0.6" max="1.8" value="1.18" step="0.02" />
+              <button class="stepper" type="button" data-control="urbanMultiplier" data-step="1" aria-label="Increase urban demand multiplier">+</button>
+            </div>
           </div>
           <div class="control">
             <label for="ruralMultiplier">Rural demand multiplier <output id="ruralMultiplierValue">0.72</output></label>
-            <input id="ruralMultiplier" type="range" min="0.4" max="1.5" value="0.72" step="0.02" />
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="ruralMultiplier" data-step="-1" aria-label="Decrease rural demand multiplier">−</button>
+              <input id="ruralMultiplier" type="range" min="0.4" max="1.5" value="0.72" step="0.02" />
+              <button class="stepper" type="button" data-control="ruralMultiplier" data-step="1" aria-label="Increase rural demand multiplier">+</button>
+            </div>
           </div>
           <div class="control">
             <label for="capacityMultiplier">Planned staffing capacity <output id="capacityMultiplierValue">1.80</output></label>
-            <input id="capacityMultiplier" type="range" min="0.55" max="2.2" value="1.8" step="0.05" />
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="capacityMultiplier" data-step="-1" aria-label="Decrease planned staffing capacity">−</button>
+              <input id="capacityMultiplier" type="range" min="0.55" max="2.2" value="1.8" step="0.05" />
+              <button class="stepper" type="button" data-control="capacityMultiplier" data-step="1" aria-label="Increase planned staffing capacity">+</button>
+            </div>
           </div>
           <div class="control">
             <label for="distancePenalty">Distance penalty <output id="distancePenaltyValue">0.012</output></label>
-            <input id="distancePenalty" type="range" min="0" max="0.04" value="0.012" step="0.001" />
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="distancePenalty" data-step="-1" aria-label="Decrease distance penalty">−</button>
+              <input id="distancePenalty" type="range" min="0" max="0.04" value="0.012" step="0.001" />
+              <button class="stepper" type="button" data-control="distancePenalty" data-step="1" aria-label="Increase distance penalty">+</button>
+            </div>
           </div>
         </section>
 
@@ -168,6 +188,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script type="module" src="./assets/app.js?v=perf-fsa-20260704"></script>
+    <script type="module" src="./assets/app.js?v=filter-audit-20260704"></script>
   </body>
 </html>

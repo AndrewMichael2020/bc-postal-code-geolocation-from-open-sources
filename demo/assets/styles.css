@@ -342,6 +342,36 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
+.range-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 8px;
+  align-items: center;
+}
+
+.stepper {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #172033;
+  background: #fff;
+  border: 1px solid #cfd8e5;
+  border-radius: 8px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stepper:hover {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+.stepper:focus-visible {
+  outline: 3px solid rgb(15 118 110 / 24%);
+  outline-offset: 2px;
+}
+
 .hub-list {
   display: grid;
   gap: 8px;
