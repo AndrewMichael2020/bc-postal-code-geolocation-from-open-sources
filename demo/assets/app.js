@@ -6,6 +6,7 @@ const state = {
   hubs: [],
   summary: null,
   activeHubIds: new Set(),
+  optimizedHubIds: new Set(),
   initialResult: null,
   optimizedResult: null,
   currentResult: null,
@@ -117,8 +118,9 @@ function renderMap(result) {
   }
   state.layers.fsa.addTo(map);
 
+  const visibleHubIds = new Set(result.summaries.map((summary) => summary.hub.id));
   state.layers.hubs = L.layerGroup();
-  for (const hub of state.hubs.filter((item) => state.activeHubIds.has(item.id))) {
+  for (const hub of state.hubs.filter((item) => visibleHubIds.has(item.id))) {
     const icon = L.divIcon({
       className: "hub-marker",
       html: `<span style="background:${hub.color}"></span>`,
@@ -141,6 +143,12 @@ function renderKpis(result) {
   setText("overloadedHubs", formatNumber.format(result.overloadedHubCount));
   setText("datasetShape", `${formatNumber.format(result.fsaCount)} FSA clusters`);
   setText("planMode", state.isReallocated ? "Reallocated plan" : "Initial service plan");
+  setText(
+    "networkMode",
+    state.isReallocated
+      ? `${result.activeHubCount} recommended hubs`
+      : `${result.activeHubCount} current-plan hubs`
+  );
 }
 
 function renderTable(result) {
@@ -208,12 +216,17 @@ function renderComparison() {
 function recalculatePlans() {
   readControls();
   state.clusters = buildFsaClusters(state.postalCodes, state.controls);
-  const options = {
+  state.optimizedHubIds = new Set(state.hubs.map((hub) => hub.id));
+  const currentOptions = {
     ...state.controls,
     activeHubIds: state.activeHubIds,
   };
-  state.initialResult = assignClusters(state.clusters, state.hubs, options, "inherited");
-  state.optimizedResult = assignClusters(state.clusters, state.hubs, options, "optimized");
+  const optimizedOptions = {
+    ...state.controls,
+    activeHubIds: state.optimizedHubIds,
+  };
+  state.initialResult = assignClusters(state.clusters, state.hubs, currentOptions, "inherited");
+  state.optimizedResult = assignClusters(state.clusters, state.hubs, optimizedOptions, "optimized");
   state.currentResult = state.isReallocated ? state.optimizedResult : state.initialResult;
   const result = state.currentResult;
   renderKpis(result);

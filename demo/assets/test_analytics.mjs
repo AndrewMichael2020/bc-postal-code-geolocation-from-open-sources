@@ -120,4 +120,17 @@ assert.equal(optimized.fsaSummaries.length, clusters.length);
 assert(optimized.summaries.filter((summary) => summary.postalCodeCount > 0).length > 1);
 assert.equal(typeof comparePlans(inherited, optimized).distanceBurdenDeltaKm, "number");
 
+const richmondOnlyCurrent = assignClusters(
+  clusters,
+  namedHubs,
+  { ...planOptions, activeHubIds: new Set(["richmond"]) },
+  "inherited"
+);
+const fullNetworkRecommendation = assignClusters(clusters, namedHubs, planOptions, "optimized");
+assert.equal(
+  richmondOnlyCurrent.summaries.filter((summary) => summary.postalCodeCount > 0).length,
+  1
+);
+assert(fullNetworkRecommendation.summaries.filter((summary) => summary.postalCodeCount > 0).length > 1);
+
 console.log("analytics tests passed");

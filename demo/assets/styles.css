@@ -330,6 +330,13 @@ button {
   font-weight: 700;
 }
 
+.mode-note {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
