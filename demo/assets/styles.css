@@ -202,6 +202,10 @@ input {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(390px, 31vw);
@@ -371,6 +375,80 @@ input[type="range"] {
   line-height: 1.42;
 }
 
+.action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 40px;
+  border-radius: 8px;
+  font-weight: 750;
+}
+
+.primary-action {
+  color: #fff;
+  background: #0f766e;
+  border: 1px solid #0f766e;
+  box-shadow: 0 8px 18px rgb(15 118 110 / 18%);
+}
+
+.secondary-action {
+  color: #172033;
+  background: #fff;
+  border: 1px solid #cfd8e5;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+}
+
+.comparison-grid div {
+  min-height: 68px;
+  padding: 10px 12px;
+  background: #fff;
+  border-right: 1px solid #edf1f6;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.comparison-grid div:nth-child(2n) {
+  border-right: 0;
+}
+
+.comparison-grid div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.comparison-grid span,
+.delta-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.comparison-grid strong,
+.delta-card strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 1.04rem;
+}
+
+.delta-card {
+  margin-top: 10px;
+  padding: 11px 12px;
+  background: #f7fbfc;
+  border: 1px solid #cfe3e6;
+  border-radius: 8px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -421,6 +499,11 @@ tbody tr.overloaded {
   line-height: 1.42;
 }
 
+.note.compact {
+  margin-bottom: 10px;
+  font-size: 0.76rem;
+}
+
 .hub-marker span {
   display: block;
   width: 22px;
@@ -465,6 +548,22 @@ tbody tr.overloaded {
 @media (max-width: 620px) {
   .kpi-grid {
     grid-template-columns: 1fr;
+  }
+
+  .action-row,
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-grid div,
+  .comparison-grid div:nth-child(2n),
+  .comparison-grid div:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid #edf1f6;
+  }
+
+  .comparison-grid div:last-child {
+    border-bottom: 0;
   }
 
   .panel {

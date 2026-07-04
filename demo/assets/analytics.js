@@ -54,12 +54,91 @@ export function percentile(values, percentileRank) {
   return sorted[index];
 }
 
-export function allocatePostalCodes(postalCodes, hubs, options) {
+export function buildFsaClusters(postalCodes, options) {
+  const clusters = new Map();
+  for (const postalCode of postalCodes) {
+    if (!clusters.has(postalCode.fsa)) {
+      clusters.set(postalCode.fsa, {
+        fsa: postalCode.fsa,
+        postalCodeCount: 0,
+        demand: 0,
+        latitudeTotal: 0,
+        longitudeTotal: 0,
+        segments: { urban: 0, suburban: 0, rural: 0 },
+      });
+    }
+    const cluster = clusters.get(postalCode.fsa);
+    const demand = options.baseDemand * segmentDemandWeight(postalCode.segment, options);
+    cluster.postalCodeCount += 1;
+    cluster.demand += demand;
+    cluster.latitudeTotal += postalCode.latitude;
+    cluster.longitudeTotal += postalCode.longitude;
+    cluster.segments[postalCode.segment] += 1;
+  }
+  return [...clusters.values()]
+    .map((cluster) => ({
+      ...cluster,
+      latitude: cluster.latitudeTotal / cluster.postalCodeCount,
+      longitude: cluster.longitudeTotal / cluster.postalCodeCount,
+    }))
+    .sort((a, b) => a.fsa.localeCompare(b.fsa));
+}
+
+export function inheritedPlanHub(cluster, activeHubs) {
+  const byId = new Map(activeHubs.map((hub) => [hub.id, hub]));
+  const fallback = nearestHub(cluster, activeHubs)?.hub ?? activeHubs[0];
+  if (cluster.longitude < -123.15) {
+    return byId.get("richmond") ?? fallback;
+  }
+  if (cluster.latitude >= 49.29 && cluster.longitude < -122.78) {
+    return byId.get("north_vancouver") ?? fallback;
+  }
+  if (cluster.longitude > -122.08) {
+    return byId.get("chilliwack") ?? fallback;
+  }
+  if (cluster.longitude > -122.46) {
+    return byId.get("abbotsford") ?? fallback;
+  }
+  if (cluster.longitude > -122.75 && cluster.latitude < 49.2) {
+    return byId.get("surrey") ?? fallback;
+  }
+  if (cluster.longitude > -122.92) {
+    return byId.get("burnaby") ?? fallback;
+  }
+  return byId.get("vancouver") ?? fallback;
+}
+
+export function optimizedPlanHub(cluster, activeHubs, runningDemand, options) {
+  const averageCapacity =
+    activeHubs.reduce((sum, hub) => sum + hub.capacity * options.capacityMultiplier, 0) /
+    activeHubs.length;
+  let best = null;
+  for (const hub of activeHubs) {
+    const distanceKm = haversineKm(cluster.latitude, cluster.longitude, hub.latitude, hub.longitude);
+    const projectedDemand = (runningDemand.get(hub.id) ?? 0) + cluster.demand;
+    const overloadRatio = Math.max(
+      0,
+      projectedDemand / (hub.capacity * options.capacityMultiplier) - 1
+    );
+    const balanceRatio = averageCapacity ? projectedDemand / averageCapacity : 0;
+    const score =
+      distanceKm * (1 + options.distancePenalty * 35) +
+      overloadRatio * 55 +
+      Math.max(0, balanceRatio - 1.15) * 16;
+    if (!best || score < best.score) {
+      best = { hub, distanceKm, score };
+    }
+  }
+  return best;
+}
+
+export function assignClusters(clusters, hubs, options, mode = "optimized") {
   const activeHubs = hubs.filter((hub) => options.activeHubIds.has(hub.id));
   const allocations = new Map();
-  const fsaGroups = new Map();
+  const fsaSummaries = [];
   const distances = [];
   let totalDemand = 0;
+  const runningDemand = new Map();
 
   for (const hub of activeHubs) {
     allocations.set(hub.id, {
@@ -70,43 +149,47 @@ export function allocatePostalCodes(postalCodes, hubs, options) {
       distances: [],
       overloaded: false,
     });
+    runningDemand.set(hub.id, 0);
   }
 
-  for (const postalCode of postalCodes) {
-    const assignment = nearestHub(postalCode, activeHubs);
-    if (!assignment) {
+  const orderedClusters =
+    mode === "optimized" ? [...clusters].sort((a, b) => b.demand - a.demand) : clusters;
+
+  for (const cluster of orderedClusters) {
+    if (!activeHubs.length) {
       continue;
     }
-    const demand =
-      options.baseDemand *
-      segmentDemandWeight(postalCode.segment, options) *
-      (1 + assignment.distanceKm * options.distancePenalty);
-    const allocation = allocations.get(assignment.hub.id);
-    allocation.postalCodeCount += 1;
-    allocation.demand += demand;
-    allocation.distanceBurdenKm += assignment.distanceKm * demand;
-    allocation.distances.push(assignment.distanceKm);
-    distances.push(assignment.distanceKm);
-    totalDemand += demand;
-
-    const fsa = postalCode.fsa;
-    if (!fsaGroups.has(fsa)) {
-      fsaGroups.set(fsa, {
-        fsa,
-        hubId: assignment.hub.id,
-        hubName: assignment.hub.name,
-        color: assignment.hub.color,
-        postalCodeCount: 0,
-        demand: 0,
-        latitudeTotal: 0,
-        longitudeTotal: 0,
-      });
+    const assignment =
+      mode === "inherited"
+        ? { hub: inheritedPlanHub(cluster, activeHubs) }
+        : optimizedPlanHub(cluster, activeHubs, runningDemand, options);
+    if (!assignment?.hub) {
+      continue;
     }
-    const fsaGroup = fsaGroups.get(fsa);
-    fsaGroup.postalCodeCount += 1;
-    fsaGroup.demand += demand;
-    fsaGroup.latitudeTotal += postalCode.latitude;
-    fsaGroup.longitudeTotal += postalCode.longitude;
+    const distanceKm = haversineKm(
+      cluster.latitude,
+      cluster.longitude,
+      assignment.hub.latitude,
+      assignment.hub.longitude
+    );
+    const allocation = allocations.get(assignment.hub.id);
+    allocation.postalCodeCount += cluster.postalCodeCount;
+    allocation.demand += cluster.demand;
+    allocation.distanceBurdenKm += distanceKm * cluster.demand;
+    allocation.distances.push(distanceKm);
+    distances.push(distanceKm);
+    totalDemand += cluster.demand;
+    runningDemand.set(assignment.hub.id, (runningDemand.get(assignment.hub.id) ?? 0) + cluster.demand);
+    fsaSummaries.push({
+      fsa: cluster.fsa,
+      hubId: assignment.hub.id,
+      hubName: assignment.hub.name,
+      color: assignment.hub.color,
+      postalCodeCount: cluster.postalCodeCount,
+      demand: cluster.demand,
+      latitude: cluster.latitude,
+      longitude: cluster.longitude,
+    });
   }
 
   const summaries = [...allocations.values()].map((allocation) => {
@@ -120,6 +203,7 @@ export function allocatePostalCodes(postalCodes, hubs, options) {
       utilization: capacity ? allocation.demand / capacity : 0,
       medianDistanceKm: percentile(allocation.distances, 50),
       p95DistanceKm: percentile(allocation.distances, 95),
+      meanDistanceKm: allocation.demand ? allocation.distanceBurdenKm / allocation.demand : 0,
       distanceBurdenKm: allocation.distanceBurdenKm,
       overloaded: allocation.overloaded,
     };
@@ -133,22 +217,34 @@ export function allocatePostalCodes(postalCodes, hubs, options) {
     ? Math.max(...demandValues.map((value) => Math.abs(value - averageDemand))) / averageDemand
     : 0;
 
-  const fsaSummaries = [...fsaGroups.values()].map((fsaGroup) => ({
-    ...fsaGroup,
-    latitude: fsaGroup.latitudeTotal / fsaGroup.postalCodeCount,
-    longitude: fsaGroup.longitudeTotal / fsaGroup.postalCodeCount,
-  }));
-
   return {
+    mode,
     activeHubCount: activeHubs.length,
-    postalCodeCount: postalCodes.length,
+    postalCodeCount: clusters.reduce((sum, cluster) => sum + cluster.postalCodeCount, 0),
+    fsaCount: clusters.length,
     assignedPostalCodeCount: summaries.reduce((sum, item) => sum + item.postalCodeCount, 0),
     totalDemand,
     medianDistanceKm: percentile(distances, 50),
     p95DistanceKm: percentile(distances, 95),
+    distanceBurdenKm: summaries.reduce((sum, item) => sum + item.distanceBurdenKm, 0),
     imbalanceScore,
     overloadedHubCount: summaries.filter((summary) => summary.overloaded).length,
     summaries: summaries.sort((a, b) => b.demand - a.demand),
-    fsaSummaries,
+    fsaSummaries: fsaSummaries.sort((a, b) => a.fsa.localeCompare(b.fsa)),
+  };
+}
+
+export function allocatePostalCodes(postalCodes, hubs, options) {
+  const clusters = buildFsaClusters(postalCodes, options);
+  return assignClusters(clusters, hubs, options, "optimized");
+}
+
+export function comparePlans(before, after) {
+  return {
+    p95DistanceDeltaKm: after.p95DistanceKm - before.p95DistanceKm,
+    medianDistanceDeltaKm: after.medianDistanceKm - before.medianDistanceKm,
+    distanceBurdenDeltaKm: after.distanceBurdenKm - before.distanceBurdenKm,
+    imbalanceDelta: after.imbalanceScore - before.imbalanceScore,
+    overloadedHubDelta: after.overloadedHubCount - before.overloadedHubCount,
   };
 }

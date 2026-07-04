@@ -1,15 +1,20 @@
-import { allocatePostalCodes } from "./analytics.js";
+import { assignClusters, buildFsaClusters, comparePlans } from "./analytics.js";
 
 const state = {
   postalCodes: [],
+  clusters: [],
   hubs: [],
   summary: null,
   activeHubIds: new Set(),
+  initialResult: null,
+  optimizedResult: null,
+  currentResult: null,
+  isReallocated: false,
   controls: {
     baseDemand: 0.9,
     urbanMultiplier: 1.18,
     ruralMultiplier: 0.72,
-    capacityMultiplier: 1,
+    capacityMultiplier: 1.8,
     distancePenalty: 0.012,
   },
   layers: {
@@ -74,7 +79,8 @@ function renderHubControls() {
       } else {
         checkbox.checked = true;
       }
-      recalculate();
+      state.isReallocated = false;
+      recalculatePlans();
     });
     const span = document.createElement("span");
     span.textContent = hub.name;
@@ -100,7 +106,7 @@ function renderMap(result) {
       color: "#111827",
       weight: 1,
       fillColor: fsa.color,
-      fillOpacity: 0.62,
+      fillOpacity: state.isReallocated ? 0.68 : 0.48,
     })
       .bindPopup(
         `<strong>${fsa.fsa}</strong><br>${fsa.hubName}<br>${formatNumber.format(
@@ -133,7 +139,8 @@ function renderKpis(result) {
   setText("p95Proxy", `${formatDecimal.format(result.p95DistanceKm)} km`);
   setText("imbalanceScore", formatPercent.format(result.imbalanceScore));
   setText("overloadedHubs", formatNumber.format(result.overloadedHubCount));
-  setText("datasetShape", `${formatNumber.format(state.summary.postal_code_count)} postal codes`);
+  setText("datasetShape", `${formatNumber.format(result.fsaCount)} FSA clusters`);
+  setText("planMode", state.isReallocated ? "Reallocated plan" : "Initial service plan");
 }
 
 function renderTable(result) {
@@ -158,23 +165,72 @@ function renderTable(result) {
 function renderNarrative(result) {
   const heaviest = result.summaries[0];
   const lightest = result.summaries[result.summaries.length - 1];
-  const message =
-    result.overloadedHubCount > 0
-      ? `${result.overloadedHubCount} hub(s) exceed the current capacity assumption. Rebalance by activating another hub, lowering demand pressure, or increasing capacity.`
-      : `The current scenario keeps all active hubs within capacity. ${heaviest.hub.name} carries the largest modelled demand while ${lightest.hub.name} carries the lightest.`;
+  let message;
+  if (state.isReallocated && state.initialResult && state.optimizedResult) {
+    const delta = comparePlans(state.initialResult, state.optimizedResult);
+    const burdenVerb = delta.distanceBurdenDeltaKm < 0 ? "reduces" : "increases";
+    message = `Reallocation ${burdenVerb} modelled travel burden by ${formatNumber.format(
+      Math.abs(delta.distanceBurdenDeltaKm)
+    )} km-demand units and changes the 95th percentile proxy by ${formatDecimal.format(
+      delta.p95DistanceDeltaKm
+    )} km.`;
+  } else if (result.overloadedHubCount > 0) {
+    message = `${result.overloadedHubCount} hub(s) exceed the current capacity assumption in the inherited plan. Reallocate to redraw clusters and compare the operating trade-off.`;
+  } else {
+    message = `The inherited plan keeps all active hubs within capacity. ${heaviest.hub.name} carries the largest modelled demand while ${lightest.hub.name} carries the lightest.`;
+  }
   setText("scenarioNarrative", message);
 }
 
-function recalculate() {
+function renderComparison() {
+  if (!state.initialResult || !state.optimizedResult) {
+    return;
+  }
+  const before = state.initialResult;
+  const after = state.optimizedResult;
+  const delta = comparePlans(before, after);
+  setText("beforeP95", `${formatDecimal.format(before.p95DistanceKm)} km`);
+  setText("afterP95", state.isReallocated ? `${formatDecimal.format(after.p95DistanceKm)} km` : "-");
+  setText("beforeImbalance", formatPercent.format(before.imbalanceScore));
+  setText("afterImbalance", state.isReallocated ? formatPercent.format(after.imbalanceScore) : "-");
+  setText("beforeOverloaded", formatNumber.format(before.overloadedHubCount));
+  setText("afterOverloaded", state.isReallocated ? formatNumber.format(after.overloadedHubCount) : "-");
+  setText(
+    "travelBurdenDelta",
+    state.isReallocated
+      ? `${delta.distanceBurdenDeltaKm <= 0 ? "-" : "+"}${formatNumber.format(
+          Math.abs(delta.distanceBurdenDeltaKm)
+        )}`
+      : "Run reallocation"
+  );
+}
+
+function recalculatePlans() {
   readControls();
-  const result = allocatePostalCodes(state.postalCodes, state.hubs, {
+  state.clusters = buildFsaClusters(state.postalCodes, state.controls);
+  const options = {
     ...state.controls,
     activeHubIds: state.activeHubIds,
-  });
+  };
+  state.initialResult = assignClusters(state.clusters, state.hubs, options, "inherited");
+  state.optimizedResult = assignClusters(state.clusters, state.hubs, options, "optimized");
+  state.currentResult = state.isReallocated ? state.optimizedResult : state.initialResult;
+  const result = state.currentResult;
   renderKpis(result);
   renderTable(result);
   renderNarrative(result);
+  renderComparison();
   renderMap(result);
+}
+
+function reallocateNow() {
+  state.isReallocated = true;
+  recalculatePlans();
+}
+
+function resetToInitialPlan() {
+  state.isReallocated = false;
+  recalculatePlans();
 }
 
 async function loadJson(path) {
@@ -197,9 +253,11 @@ async function init() {
   state.activeHubIds = new Set(hubs.map((hub) => hub.id));
   renderHubControls();
   for (const input of document.querySelectorAll("input[type='range']")) {
-    input.addEventListener("input", recalculate);
+    input.addEventListener("input", recalculatePlans);
   }
-  recalculate();
+  document.getElementById("reallocateButton").addEventListener("click", reallocateNow);
+  document.getElementById("resetButton").addEventListener("click", resetToInitialPlan);
+  recalculatePlans();
   document.body.classList.add("ready");
 }
 

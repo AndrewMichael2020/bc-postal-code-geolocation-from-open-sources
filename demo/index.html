@@ -25,10 +25,17 @@
         <section class="section">
           <h2>Scenario</h2>
           <p id="scenarioNarrative" class="narrative">Loading allocation model...</p>
+          <div class="action-row">
+            <button id="reallocateButton" class="primary-action" type="button">Reallocate now</button>
+            <button id="resetButton" class="secondary-action" type="button">Show initial plan</button>
+          </div>
         </section>
 
         <section class="section">
-          <h2>Executive Snapshot</h2>
+          <div class="control-row">
+            <h2>Executive Snapshot</h2>
+            <strong id="planMode">Initial service plan</strong>
+          </div>
           <div class="kpi-grid">
             <div class="kpi">
               <span>Assigned postal codes</span>
@@ -58,6 +65,40 @@
         </section>
 
         <section class="section">
+          <h2>Before / After</h2>
+          <div class="comparison-grid">
+            <div>
+              <span>Initial P95 proxy</span>
+              <strong id="beforeP95">-</strong>
+            </div>
+            <div>
+              <span>Reallocated P95 proxy</span>
+              <strong id="afterP95">-</strong>
+            </div>
+            <div>
+              <span>Initial imbalance</span>
+              <strong id="beforeImbalance">-</strong>
+            </div>
+            <div>
+              <span>Reallocated imbalance</span>
+              <strong id="afterImbalance">-</strong>
+            </div>
+            <div>
+              <span>Initial overloaded hubs</span>
+              <strong id="beforeOverloaded">-</strong>
+            </div>
+            <div>
+              <span>Reallocated overloaded hubs</span>
+              <strong id="afterOverloaded">-</strong>
+            </div>
+          </div>
+          <div class="delta-card">
+            <span>Travel burden delta</span>
+            <strong id="travelBurdenDelta">Run reallocation</strong>
+          </div>
+        </section>
+
+        <section class="section">
           <h2>Assumptions</h2>
           <div class="control">
             <label for="baseDemand">Base visits per postal code <output id="baseDemandValue">0.9</output></label>
@@ -72,8 +113,8 @@
             <input id="ruralMultiplier" type="range" min="0.4" max="1.5" value="0.72" step="0.02" />
           </div>
           <div class="control">
-            <label for="capacityMultiplier">Hub capacity multiplier <output id="capacityMultiplierValue">1.00</output></label>
-            <input id="capacityMultiplier" type="range" min="0.55" max="1.8" value="1" step="0.05" />
+            <label for="capacityMultiplier">Planned staffing capacity <output id="capacityMultiplierValue">1.80</output></label>
+            <input id="capacityMultiplier" type="range" min="0.55" max="2.2" value="1.8" step="0.05" />
           </div>
           <div class="control">
             <label for="distancePenalty">Distance penalty <output id="distancePenaltyValue">0.012</output></label>
@@ -83,6 +124,10 @@
 
         <section class="section">
           <h2>Service Hubs</h2>
+          <p class="note compact">
+            Checked hubs are candidate bases. The initial plan shows inherited territory
+            rules; reallocation redraws whole FSA clusters across the selected candidates.
+          </p>
           <div id="hubControls" class="hub-list"></div>
         </section>
 
