@@ -4,6 +4,7 @@
 !.env.example
 .venv/
 __pycache__/
+.pytest_cache/
 *.py[cod]
 local_private/
 

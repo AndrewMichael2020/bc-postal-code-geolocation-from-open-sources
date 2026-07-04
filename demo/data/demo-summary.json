@@ -1,0 +1,40 @@
+{
+  "bounds": {
+    "max_lat": 49.9,
+    "max_lon": -121.15,
+    "min_lat": 49.0,
+    "min_lon": -123.55
+  },
+  "fsa_count": 113,
+  "hub_count": 7,
+  "methodology": "Static demo subset filtered from the public free/open BC postal-code dataset. Routing metrics are browser-side Haversine planning proxies, not road-network times.",
+  "postal_code_count": 71255,
+  "segment_counts": {
+    "rural": 1396,
+    "suburban": 36577,
+    "urban": 33282
+  },
+  "source": "data/bc_postal_codes_geolocated.csv",
+  "top_fsa_counts": {
+    "V2P": 1317,
+    "V2S": 1338,
+    "V2T": 1080,
+    "V2V": 1176,
+    "V2X": 1633,
+    "V3A": 1535,
+    "V3B": 1353,
+    "V3C": 991,
+    "V3J": 1301,
+    "V3K": 1104,
+    "V3M": 1069,
+    "V3R": 1345,
+    "V3S": 1777,
+    "V3V": 1260,
+    "V3W": 1531,
+    "V4A": 1348,
+    "V4C": 1323,
+    "V4N": 1184,
+    "V6P": 1035,
+    "V7E": 1023
+  }
+}

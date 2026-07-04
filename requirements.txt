@@ -1,3 +1,4 @@
 certifi
 osmium
+pytest
 shapely

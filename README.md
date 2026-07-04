@@ -1,6 +1,7 @@
 # BC Postal Code Geolocation From Open Sources
 
 [![CI](https://github.com/AndrewMichael2020/bc-postal-code-geolocation-from-open-sources/actions/workflows/ci.yml/badge.svg)](https://github.com/AndrewMichael2020/bc-postal-code-geolocation-from-open-sources/actions/workflows/ci.yml)
+[![Pages](https://github.com/AndrewMichael2020/bc-postal-code-geolocation-from-open-sources/actions/workflows/pages.yml/badge.svg)](https://github.com/AndrewMichael2020/bc-postal-code-geolocation-from-open-sources/actions/workflows/pages.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-compile%20%2B%20unit-brightgreen)
 ![Dataset](https://img.shields.io/badge/dataset-123%2C044%20BC%20postal%20codes-success)
@@ -50,6 +51,29 @@ First 10 rows:
 | SYN-PC-000010 | V0A 1A0 | 50.540200 | -116.001900 |
 
 The committed dataset is the free/open reconstruction. It has not been cleaned or modified with Google Maps Geocoding. Google-based cleaning is documented below as a local-only QA recipe because Google Maps Platform Geocoding content has caching/storage restrictions; see [ATTRIBUTION.md](ATTRIBUTION.md).
+
+## Demo
+
+The repository includes a static GitHub Pages demo for a fictional Lower Mainland mobile-care operator:
+
+[Lower Mainland Mobile Care Service Allocation Demo](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
+
+The demo is an executive operations workspace, not a raw map dump. It asks: “Where should mobile teams be based, and which postal-code areas should each team cover?” It allocates Lower Mainland postal codes to fictional service hubs, estimates demand with configurable assumptions, and shows workload balance, overloaded hubs, and straight-line travel-distance proxies.
+
+The demo uses only public free/open data from this repository. Its static asset at `demo/data/lower-mainland-postal-codes.json` is generated from the canonical root dataset at `data/bc_postal_codes_geolocated.csv`; it is not a separate source of truth and does not include Google-derived coordinates. The demo subset currently contains **71,255** postal-code rows and **7** fictional service hubs.
+
+Regenerate the demo assets after refreshing the canonical CSV:
+
+```bash
+python scripts/generate_demo_assets.py
+```
+
+Run the demo locally:
+
+```bash
+cd demo
+python -m http.server 8000
+```
 
 ## Business Case
 

@@ -1,0 +1,65 @@
+[
+  {
+    "capacity": 9800,
+    "color": "#2563eb",
+    "id": "vancouver",
+    "latitude": 49.2827,
+    "longitude": -123.1207,
+    "municipality": "Vancouver",
+    "name": "Vancouver Central"
+  },
+  {
+    "capacity": 10400,
+    "color": "#dc2626",
+    "id": "surrey",
+    "latitude": 49.1044,
+    "longitude": -122.8011,
+    "municipality": "Surrey",
+    "name": "Surrey South Fraser"
+  },
+  {
+    "capacity": 8600,
+    "color": "#7c3aed",
+    "id": "burnaby",
+    "latitude": 49.2488,
+    "longitude": -122.9805,
+    "municipality": "Burnaby",
+    "name": "Burnaby East Metro"
+  },
+  {
+    "capacity": 7600,
+    "color": "#0891b2",
+    "id": "abbotsford",
+    "latitude": 49.0504,
+    "longitude": -122.3045,
+    "municipality": "Abbotsford",
+    "name": "Abbotsford Fraser Valley"
+  },
+  {
+    "capacity": 6800,
+    "color": "#16a34a",
+    "id": "richmond",
+    "latitude": 49.1666,
+    "longitude": -123.1336,
+    "municipality": "Richmond",
+    "name": "Richmond Delta"
+  },
+  {
+    "capacity": 5200,
+    "color": "#ea580c",
+    "id": "north_vancouver",
+    "latitude": 49.32,
+    "longitude": -123.073,
+    "municipality": "North Vancouver",
+    "name": "North Shore"
+  },
+  {
+    "capacity": 6200,
+    "color": "#0f766e",
+    "id": "chilliwack",
+    "latitude": 49.1579,
+    "longitude": -121.9515,
+    "municipality": "Chilliwack",
+    "name": "Chilliwack East Valley"
+  }
+]
