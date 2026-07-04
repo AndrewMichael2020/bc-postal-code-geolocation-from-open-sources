@@ -9,6 +9,14 @@
 ![Lineage](https://img.shields.io/badge/lineage-source%20comparison%20reports-blueviolet)
 ![Google](https://img.shields.io/badge/Google%20Maps-optional%20local%20QA-yellow)
 
+<p>
+  <strong>
+    <a href="https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/" style="color: #d00000;">
+      Live Demo: Lower Mainland Mobile Care Service Allocation
+    </a>
+  </strong>
+</p>
+
 Reconstruct British Columbia postal-code geolocations from web-accessible free and open sources. The repository includes a publishable generated dataset, import scripts, comparison reports, optional local-only adjudication tooling, and audit helpers.
 
 ## Dataset
