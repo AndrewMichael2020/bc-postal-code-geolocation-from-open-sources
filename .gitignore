@@ -12,9 +12,9 @@ work/**
 !work/.gitkeep
 
 outputs/**
-!outputs/.gitkeep
-!outputs/geolocation/
-!outputs/geolocation/.gitkeep
+!outputs/
+!outputs/README.md
+!outputs/fha_golden_distances_times.csv
 
 reports/**
 !reports/.gitkeep
