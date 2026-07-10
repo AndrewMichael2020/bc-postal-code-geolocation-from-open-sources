@@ -12,7 +12,7 @@
 <p>
   <strong>
     <a href="https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/" style="color: #d00000;">
-      Live Demo: Lower Mainland Mobile Care Service Allocation
+      Live Demo: Fraser Health Home Health Territory Planner
     </a>
   </strong>
 </p>
@@ -62,26 +62,43 @@ The committed dataset is the free/open reconstruction. It has not been cleaned o
 
 ## Demo
 
-The repository includes a static GitHub Pages demo for a fictional Lower Mainland mobile-care operator:
+The repository includes a static GitHub Pages demo for Fraser Health home health territory planning:
 
-[Lower Mainland Mobile Care Service Allocation Demo](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
+[Fraser Health Home Health Territory Planner](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
 
-The demo is an executive operations workspace, not a raw map dump. It asks: “Where should mobile teams be based, and which postal-code areas should each team cover?” It starts with an inherited service plan, shows initial workload and travel-proxy stats, then lets the user click **Reallocate now** to redraw FSA-level clusters across candidate hubs and compare before/after results.
+The demo is a management scenario workspace for longitudinal home health visits. It uses OSRM road travel time and distance from the Fraser Health postal-code-to-facility dataset, then converts travel into an operating-cost estimate using provider time, gas, fuel consumption, and vehicle maintenance assumptions.
 
-The demo uses only public free/open data from this repository. Its static assets are generated from the canonical root dataset at `data/bc_postal_codes_geolocated.csv`; they are not separate sources of truth and do not include Google-derived coordinates. The demo keeps a row-level transparency file with **71,255** postal-code rows, but the browser loads a compact **113 FSA-cluster** file for speed, plus **7** fictional service hubs.
+The demo no longer uses straight-line distance, fictional hubs, or FSA centroid clusters. It loads a compact browser asset generated from the Git LFS dataset at `outputs/fha_golden_distances_times.csv`:
 
-Regenerate the demo assets after refreshing the canonical CSV:
+```text
+demo/data/fha-home-health-demo.json
+```
+
+Current demo shape:
+
+| Metric | Value |
+| --- | ---: |
+| Fraser Health postal codes | 41,176 |
+| Healthcare facilities | 27 |
+| OSRM route candidates in browser asset | 329,408 |
+| Full source route pairs in LFS CSV | 1,111,752 |
+
+The browser asset keeps the top route candidates per postal code for fast interaction. It preserves route duration, road distance, facility identity, postal-code coordinates, and compact route-warning labels. The full rich table remains in Git LFS.
+
+Regenerate the demo asset after refreshing the OSRM LFS CSV:
 
 ```bash
-python scripts/generate_demo_assets.py
+python3 scripts/build_fha_home_health_demo_assets.py
 ```
 
 Run the demo locally:
 
 ```bash
 cd demo
-python -m http.server 8000
+python3 -m http.server 8000
 ```
+
+Then open `http://127.0.0.1:8000/`.
 
 ## Business Case
 

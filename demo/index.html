@@ -3,64 +3,72 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lower Mainland Mobile Care Allocation Demo</title>
+    <title>Fraser Health Home Health Territory Planner</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=map-fallback-20260704" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="map-stage" aria-label="Lower Mainland allocation map">
+      <section class="map-stage" aria-label="Fraser Health home health territory map">
         <div id="map"></div>
         <header class="map-title">
-          <h1>Lower Mainland Mobile Care Service Allocation</h1>
+          <h1>Fraser Health Home Health Territory Planner</h1>
           <p>
-            Where should mobile teams be based, and which postal-code areas should each
-            team cover? This demo allocates open postal-code geolocations to fictional
-            care hubs using distance-based planning proxies.
+            Plan longitudinal home health service areas using OSRM road travel time,
+            route distance, provider time cost, vehicle cost, capacity, and route-risk warnings.
           </p>
         </header>
       </section>
 
-      <aside class="panel" aria-label="Scenario controls and allocation results">
+      <aside class="panel" aria-label="Scenario controls and territory results">
         <section class="section">
-          <h2>Scenario</h2>
-          <p id="scenarioNarrative" class="narrative">Loading allocation model...</p>
+          <div class="control-row">
+            <h2>Scenario Verdict</h2>
+            <strong id="planMode">Lowest-cost baseline</strong>
+          </div>
+          <p id="networkMode" class="mode-note">-</p>
+          <strong id="verdictLabel" class="verdict">Loading</strong>
+          <p id="scenarioNarrative" class="narrative">Loading OSRM territory model...</p>
           <div class="action-row">
-            <button id="reallocateButton" class="primary-action" type="button">Reallocate now</button>
-            <button id="resetButton" class="secondary-action" type="button">Show initial plan</button>
+            <button id="optimizeButton" class="primary-action" type="button">Optimize territories</button>
+            <button id="baselineButton" class="secondary-action" type="button">Show lowest-cost plan</button>
           </div>
         </section>
 
         <section class="section">
-          <div class="control-row">
-            <h2>Executive Snapshot</h2>
-            <strong id="planMode">Initial service plan</strong>
-          </div>
-          <p id="networkMode" class="mode-note">-</p>
+          <h2>Executive Snapshot</h2>
           <div class="kpi-grid">
             <div class="kpi">
               <span>Assigned postal codes</span>
               <strong id="postalCount">-</strong>
             </div>
             <div class="kpi">
-              <span>Estimated visit demand</span>
-              <strong id="demandCount">-</strong>
+              <span>Weekly operating cost</span>
+              <strong id="weeklyCost">-</strong>
             </div>
             <div class="kpi">
-              <span>Median travel proxy</span>
-              <strong id="medianProxy">-</strong>
+              <span>Provider travel hours</span>
+              <strong id="weeklyTravelHours">-</strong>
             </div>
             <div class="kpi">
-              <span>95th percentile proxy</span>
-              <strong id="p95Proxy">-</strong>
+              <span>Vehicle cost</span>
+              <strong id="vehicleCost">-</strong>
             </div>
             <div class="kpi">
-              <span>Workload imbalance</span>
-              <strong id="imbalanceScore">-</strong>
+              <span>P95 one-way travel time</span>
+              <strong id="p95TravelTime">-</strong>
             </div>
             <div class="kpi">
-              <span>Overloaded hubs</span>
-              <strong id="overloadedHubs">-</strong>
+              <span>Capacity shortfall</span>
+              <strong id="capacityShortfall">-</strong>
+            </div>
+            <div class="kpi">
+              <span>Review rows</span>
+              <strong id="exceptionCount">-</strong>
+            </div>
+            <div class="kpi">
+              <span>Vehicle cost rate</span>
+              <strong id="vehicleCostValue">-</strong>
             </div>
           </div>
         </section>
@@ -69,103 +77,166 @@
           <h2>Before / After</h2>
           <div class="comparison-grid">
             <div>
-              <span>Initial P95 proxy</span>
-              <strong id="beforeP95">-</strong>
+              <span>Baseline weekly cost</span>
+              <strong id="baselineCost">-</strong>
             </div>
             <div>
-              <span>Reallocated P95 proxy</span>
-              <strong id="afterP95">-</strong>
+              <span>Optimized weekly cost</span>
+              <strong id="optimizedCost">-</strong>
             </div>
             <div>
-              <span>Initial imbalance</span>
-              <strong id="beforeImbalance">-</strong>
+              <span>Baseline P95 time</span>
+              <strong id="baselineP95">-</strong>
             </div>
             <div>
-              <span>Reallocated imbalance</span>
-              <strong id="afterImbalance">-</strong>
+              <span>Optimized P95 time</span>
+              <strong id="optimizedP95">-</strong>
             </div>
             <div>
-              <span>Initial overloaded hubs</span>
-              <strong id="beforeOverloaded">-</strong>
+              <span>Baseline shortfall</span>
+              <strong id="baselineShortfall">-</strong>
             </div>
             <div>
-              <span>Reallocated overloaded hubs</span>
-              <strong id="afterOverloaded">-</strong>
+              <span>Optimized shortfall</span>
+              <strong id="optimizedShortfall">-</strong>
             </div>
           </div>
-          <div class="delta-card">
-            <span>Travel burden delta</span>
-            <strong id="travelBurdenDelta">Run reallocation</strong>
-          </div>
-        </section>
-
-        <section class="section">
-          <h2>Assumptions</h2>
-          <div class="control">
-            <label for="baseDemand">Base visits per postal code <output id="baseDemandValue">0.9</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="baseDemand" data-step="-1" aria-label="Decrease base visits per postal code">−</button>
-              <input id="baseDemand" type="range" min="0.2" max="2.2" value="0.9" step="0.1" />
-              <button class="stepper" type="button" data-control="baseDemand" data-step="1" aria-label="Increase base visits per postal code">+</button>
+          <div class="delta-grid">
+            <div class="delta-card">
+              <span>Cost delta</span>
+              <strong id="costDelta">Run optimization</strong>
             </div>
-          </div>
-          <div class="control">
-            <label for="urbanMultiplier">Urban demand multiplier <output id="urbanMultiplierValue">1.18</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="urbanMultiplier" data-step="-1" aria-label="Decrease urban demand multiplier">−</button>
-              <input id="urbanMultiplier" type="range" min="0.6" max="1.8" value="1.18" step="0.02" />
-              <button class="stepper" type="button" data-control="urbanMultiplier" data-step="1" aria-label="Increase urban demand multiplier">+</button>
+            <div class="delta-card">
+              <span>Travel-hour delta</span>
+              <strong id="hoursDelta">-</strong>
             </div>
-          </div>
-          <div class="control">
-            <label for="ruralMultiplier">Rural demand multiplier <output id="ruralMultiplierValue">0.72</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="ruralMultiplier" data-step="-1" aria-label="Decrease rural demand multiplier">−</button>
-              <input id="ruralMultiplier" type="range" min="0.4" max="1.5" value="0.72" step="0.02" />
-              <button class="stepper" type="button" data-control="ruralMultiplier" data-step="1" aria-label="Increase rural demand multiplier">+</button>
-            </div>
-          </div>
-          <div class="control">
-            <label for="capacityMultiplier">Planned staffing capacity <output id="capacityMultiplierValue">1.80</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="capacityMultiplier" data-step="-1" aria-label="Decrease planned staffing capacity">−</button>
-              <input id="capacityMultiplier" type="range" min="0.55" max="2.2" value="1.8" step="0.05" />
-              <button class="stepper" type="button" data-control="capacityMultiplier" data-step="1" aria-label="Increase planned staffing capacity">+</button>
-            </div>
-          </div>
-          <div class="control">
-            <label for="distancePenalty">Distance penalty <output id="distancePenaltyValue">0.012</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="distancePenalty" data-step="-1" aria-label="Decrease distance penalty">−</button>
-              <input id="distancePenalty" type="range" min="0" max="0.04" value="0.012" step="0.001" />
-              <button class="stepper" type="button" data-control="distancePenalty" data-step="1" aria-label="Increase distance penalty">+</button>
+            <div class="delta-card">
+              <span>Shortfall delta</span>
+              <strong id="shortfallDelta">-</strong>
             </div>
           </div>
         </section>
 
         <section class="section">
-          <h2>Service Hubs</h2>
+          <h2>Cost And Capacity Assumptions</h2>
+          <div class="control">
+            <label for="laborCostPerHour">Provider travel cost / hour <output id="laborCostPerHourValue">$60</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="-1" aria-label="Decrease provider travel cost per hour">−</button>
+              <input id="laborCostPerHour" type="range" min="35" max="110" value="60" step="5" />
+              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="1" aria-label="Increase provider travel cost per hour">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="gasPricePerLitre">Regular gas price / litre <output id="gasPricePerLitreValue">$1.70</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="gasPricePerLitre" data-step="-1" aria-label="Decrease gas price per litre">−</button>
+              <input id="gasPricePerLitre" type="range" min="1.2" max="2.4" value="1.7" step="0.05" />
+              <button class="stepper" type="button" data-control="gasPricePerLitre" data-step="1" aria-label="Increase gas price per litre">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="fuelConsumptionLPer100Km">Truck fuel consumption <output id="fuelConsumptionValue">11.5 L/100 km</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="fuelConsumptionLPer100Km" data-step="-1" aria-label="Decrease fuel consumption">−</button>
+              <input id="fuelConsumptionLPer100Km" type="range" min="7" max="18" value="11.5" step="0.5" />
+              <button class="stepper" type="button" data-control="fuelConsumptionLPer100Km" data-step="1" aria-label="Increase fuel consumption">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="maintenanceCostPerKm">Maintenance / amortization per km <output id="maintenanceCostValue">$0.07</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="maintenanceCostPerKm" data-step="-1" aria-label="Decrease maintenance cost per kilometre">−</button>
+              <input id="maintenanceCostPerKm" type="range" min="0" max="0.25" value="0.07" step="0.01" />
+              <button class="stepper" type="button" data-control="maintenanceCostPerKm" data-step="1" aria-label="Increase maintenance cost per kilometre">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="visitsPerPostalCode">Weekly visits per postal code <output id="visitsPerPostalCodeValue">0.05</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="visitsPerPostalCode" data-step="-1" aria-label="Decrease weekly visits per postal code">−</button>
+              <input id="visitsPerPostalCode" type="range" min="0.01" max="0.3" value="0.05" step="0.01" />
+              <button class="stepper" type="button" data-control="visitsPerPostalCode" data-step="1" aria-label="Increase weekly visits per postal code">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="visitDurationMin">Visit duration <output id="visitDurationValue">45 min</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="visitDurationMin" data-step="-1" aria-label="Decrease visit duration">−</button>
+              <input id="visitDurationMin" type="range" min="20" max="120" value="45" step="5" />
+              <button class="stepper" type="button" data-control="visitDurationMin" data-step="1" aria-label="Increase visit duration">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="capacityHoursPerFacility">Weekly capacity per facility <output id="capacityHoursValue">110 h</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="capacityHoursPerFacility" data-step="-1" aria-label="Decrease weekly capacity per facility">−</button>
+              <input id="capacityHoursPerFacility" type="range" min="20" max="180" value="110" step="5" />
+              <button class="stepper" type="button" data-control="capacityHoursPerFacility" data-step="1" aria-label="Increase weekly capacity per facility">+</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Guardrails</h2>
+          <div class="control">
+            <label for="maxExtraTravelMin">Max extra travel time <output id="maxExtraTravelValue">10 min</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="maxExtraTravelMin" data-step="-1" aria-label="Decrease max extra travel time">−</button>
+              <input id="maxExtraTravelMin" type="range" min="0" max="45" value="10" step="1" />
+              <button class="stepper" type="button" data-control="maxExtraTravelMin" data-step="1" aria-label="Increase max extra travel time">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="maxExtraDistanceKm">Max extra road distance <output id="maxExtraDistanceValue">10 km</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="maxExtraDistanceKm" data-step="-1" aria-label="Decrease max extra road distance">−</button>
+              <input id="maxExtraDistanceKm" type="range" min="0" max="50" value="10" step="1" />
+              <button class="stepper" type="button" data-control="maxExtraDistanceKm" data-step="1" aria-label="Increase max extra road distance">+</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="maxRelativeCostPenalty">Max extra visit cost <output id="maxRelativeCostValue">25%</output></label>
+            <div class="range-row">
+              <button class="stepper" type="button" data-control="maxRelativeCostPenalty" data-step="-1" aria-label="Decrease max extra visit cost">−</button>
+              <input id="maxRelativeCostPenalty" type="range" min="0" max="1" value="0.25" step="0.05" />
+              <button class="stepper" type="button" data-control="maxRelativeCostPenalty" data-step="1" aria-label="Increase max extra visit cost">+</button>
+            </div>
+          </div>
+          <label class="toggle-row">
+            <input id="includeQaPenalties" class="scenario-toggle" type="checkbox" />
+            <span>Include route-warning cost penalties</span>
+          </label>
+          <label class="toggle-row">
+            <input id="allowGuardrailExceptions" class="scenario-toggle" type="checkbox" />
+            <span>Allow guardrail exceptions for review</span>
+          </label>
+        </section>
+
+        <section class="section">
+          <h2>Facilities</h2>
           <p class="note compact">
-            Checked hubs describe the current service plan. Reallocation uses the full
-            candidate hub network to recommend a better FSA-level coverage pattern.
+            Checked facilities are eligible team bases. Optimization may rebalance only within
+            the OSRM candidate routes and the active guardrails.
           </p>
-          <div id="hubControls" class="hub-list"></div>
+          <div id="facilityControls" class="hub-list"></div>
         </section>
 
         <section class="section">
           <div class="control-row">
-            <h2>Allocation By Hub</h2>
+            <h2>Allocation By Facility</h2>
             <strong id="datasetShape">-</strong>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Hub</th>
+                  <th>Facility</th>
                   <th>Codes</th>
-                  <th>Demand</th>
+                  <th>Visits</th>
                   <th>Util.</th>
-                  <th>P95</th>
+                  <th>P95 time</th>
+                  <th>Weekly cost</th>
                 </tr>
               </thead>
               <tbody id="allocationBody"></tbody>
@@ -174,11 +245,30 @@
         </section>
 
         <section class="section">
+          <h2>Exceptions And Route Warnings</h2>
+          <div class="table-wrap exceptions-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Postal code</th>
+                  <th>Assigned</th>
+                  <th>Lowest cost</th>
+                  <th>Extra time</th>
+                  <th>Extra km</th>
+                  <th>Extra cost</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody id="exceptionBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section">
           <p class="note">
-            Planning proxy only: distances are straight-line Haversine distances from
-            postal-code coordinates to selected hubs. They are useful for executive
-            scenario comparison, not for clinical scheduling, dispatch commitments, or
-            road-network routing.
+            Planning model only: travel time and distance come from the OSRM Fraser Health
+            postal-code-to-facility dataset. Demand is modeled as recurring longitudinal
+            home health visit volume, not clinical urgency.
           </p>
         </section>
       </aside>
@@ -188,6 +278,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script type="module" src="./assets/app.js?v=filter-audit-20260704"></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710"></script>
   </body>
 </html>

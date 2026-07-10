@@ -1,58 +1,85 @@
 #!/usr/bin/env python3
-"""Tests for generated GitHub Pages demo assets."""
+"""Tests for generated GitHub Pages OSRM demo assets."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from generate_demo_assets import LOWER_MAINLAND_BOUNDS, read_lower_mainland_rows
-
 
 ROOT = Path(__file__).resolve().parents[1]
-POSTAL_ASSET = ROOT / "demo" / "data" / "lower-mainland-postal-codes.json"
-FSA_CLUSTER_ASSET = ROOT / "demo" / "data" / "lower-mainland-fsa-clusters.json"
-HUB_ASSET = ROOT / "demo" / "data" / "service-hubs.json"
-SUMMARY_ASSET = ROOT / "demo" / "data" / "demo-summary.json"
+ASSET = ROOT / "demo" / "data" / "fha-home-health-demo.json"
 
 
-def test_demo_asset_is_current() -> None:
-    expected = read_lower_mainland_rows()
-    actual = json.loads(POSTAL_ASSET.read_text(encoding="utf-8"))
-    assert actual == expected
+def test_osrm_demo_asset_shape() -> None:
+    asset = json.loads(ASSET.read_text(encoding="utf-8"))
+    assert asset["schemaVersion"] == 1
+    assert asset["source"]["sourceRows"] == 1_111_752
+    assert asset["source"]["usableRows"] == 1_111_752
+    assert asset["source"]["topCandidatesPerPostalCode"] == 8
+    assert len(asset["postalCodes"]) == 41_176
+    assert len(asset["facilities"]) == 27
+    assert len(asset["candidates"]) == len(asset["postalCodes"])
+    assert set(asset["defaults"]) >= {
+        "laborCostPerHour",
+        "gasPricePerLitre",
+        "fuelConsumptionLPer100Km",
+        "maintenanceCostPerKm",
+        "visitsPerPostalCode",
+        "visitDurationMin",
+        "capacityHoursPerFacility",
+        "maxExtraTravelMin",
+        "maxExtraDistanceKm",
+        "maxRelativeCostPenalty",
+    }
 
 
-def test_demo_postal_asset_shape() -> None:
-    rows = json.loads(POSTAL_ASSET.read_text(encoding="utf-8"))
-    assert len(rows) > 50_000
-    assert rows == sorted(rows, key=lambda row: row["postal_code"])
-    postal_codes = [row["postal_code"] for row in rows]
+def test_osrm_demo_asset_references_are_valid() -> None:
+    asset = json.loads(ASSET.read_text(encoding="utf-8"))
+    postal_ids = [row[0] for row in asset["postalCodes"]]
+    postal_codes = [row[1] for row in asset["postalCodes"]]
+    assert len(postal_ids) == len(set(postal_ids))
     assert len(postal_codes) == len(set(postal_codes))
-    for row in rows:
-        assert set(row) == {"id", "postal_code", "fsa", "latitude", "longitude", "segment"}
-        assert row["postal_code"].startswith("V")
-        assert row["fsa"] == row["postal_code"][:3]
-        assert LOWER_MAINLAND_BOUNDS["min_lat"] <= row["latitude"] <= LOWER_MAINLAND_BOUNDS["max_lat"]
-        assert LOWER_MAINLAND_BOUNDS["min_lon"] <= row["longitude"] <= LOWER_MAINLAND_BOUNDS["max_lon"]
-        assert row["segment"] in {"urban", "suburban", "rural"}
+    assert postal_codes == sorted(postal_codes)
+    facility_count = len(asset["facilities"])
+    warning_count = len(asset["warningCatalog"])
+    for row in asset["postalCodes"]:
+        assert len(row) == 4
+        assert row[1].startswith("V")
+        assert 48.0 <= row[2] <= 50.5
+        assert -123.5 <= row[3] <= -121.0
+    for row in asset["facilities"]:
+        assert len(row) == 7
+        assert row[0]
+        assert row[1]
+        assert row[2] in {"hospital", "upcc", "upcc_after_hours"}
+    for candidate_list in asset["candidates"]:
+        assert 1 <= len(candidate_list) <= 8
+        previous_cost = -1.0
+        for candidate in candidate_list:
+            assert len(candidate) == 4
+            facility_index, duration_min, distance_km, warning_indexes = candidate
+            assert 0 <= facility_index < facility_count
+            assert duration_min >= 0
+            assert distance_km >= 0
+            for warning_index in warning_indexes:
+                assert 0 <= warning_index < warning_count
+            default_cost = duration_min + distance_km * 0.2655
+            assert default_cost >= previous_cost
+            previous_cost = default_cost
 
 
-def test_demo_hubs_and_summary() -> None:
-    fsa_clusters = json.loads(FSA_CLUSTER_ASSET.read_text(encoding="utf-8"))
-    hubs = json.loads(HUB_ASSET.read_text(encoding="utf-8"))
-    summary = json.loads(SUMMARY_ASSET.read_text(encoding="utf-8"))
-    assert len(fsa_clusters) == summary["fsa_count"]
-    assert fsa_clusters == sorted(fsa_clusters, key=lambda row: row["fsa"])
-    for cluster in fsa_clusters:
-        assert {"fsa", "postalCodeCount", "latitude", "longitude", "segments"} <= set(cluster)
-        assert sum(cluster["segments"].values()) == cluster["postalCodeCount"]
-        assert LOWER_MAINLAND_BOUNDS["min_lat"] <= cluster["latitude"] <= LOWER_MAINLAND_BOUNDS["max_lat"]
-        assert LOWER_MAINLAND_BOUNDS["min_lon"] <= cluster["longitude"] <= LOWER_MAINLAND_BOUNDS["max_lon"]
-    assert len(hubs) == 7
-    assert summary["hub_count"] == len(hubs)
-    assert summary["postal_code_count"] > 50_000
-    assert summary["fsa_count"] > 100
-    for hub in hubs:
-        assert {"id", "name", "latitude", "longitude", "capacity", "color"} <= set(hub)
-        assert LOWER_MAINLAND_BOUNDS["min_lat"] <= hub["latitude"] <= LOWER_MAINLAND_BOUNDS["max_lat"]
-        assert LOWER_MAINLAND_BOUNDS["min_lon"] <= hub["longitude"] <= LOWER_MAINLAND_BOUNDS["max_lon"]
+def test_no_legacy_demo_assets_required() -> None:
+    legacy_assets = [
+        ROOT / "demo" / "data" / "lower-mainland-fsa-clusters.json",
+        ROOT / "demo" / "data" / "lower-mainland-postal-codes.json",
+        ROOT / "demo" / "data" / "service-hubs.json",
+    ]
+    assert not any(path.exists() for path in legacy_assets)
+
+
+if __name__ == "__main__":
+    test_osrm_demo_asset_shape()
+    test_osrm_demo_asset_references_are_valid()
+    test_no_legacy_demo_assets_required()
+    print("demo asset tests passed")

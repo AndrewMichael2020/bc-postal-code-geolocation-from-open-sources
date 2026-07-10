@@ -1,146 +1,98 @@
 import assert from "node:assert/strict";
 import {
-  allocatePostalCodes,
-  applyDemandToClusters,
-  assignClusters,
-  buildBaseFsaClusters,
-  buildFsaClusters,
+  buildPlan,
+  classifyVerdict,
   comparePlans,
-  haversineKm,
-  nearestHub,
-  percentile,
+  guardrailBreaches,
+  hydrateDemoData,
+  mergeControls,
+  routeCostPerVisit,
+  vehicleCostPerKm,
 } from "./analytics.js";
 
-const vancouverToVictoria = haversineKm(49.2827, -123.1207, 48.4284, -123.3656);
-assert(vancouverToVictoria > 90 && vancouverToVictoria < 110);
-
-const hubs = [
-  {
-    id: "west",
-    name: "West Hub",
-    latitude: 49.28,
-    longitude: -123.12,
-    capacity: 100,
-    color: "#000",
+const asset = {
+  schemaVersion: 1,
+  defaults: {
+    laborCostPerHour: 60,
+    gasPricePerLitre: 2,
+    fuelConsumptionLPer100Km: 10,
+    maintenanceCostPerKm: 0,
+    visitsPerPostalCode: 1,
+    visitDurationMin: 30,
+    capacityHoursPerFacility: 0.9,
+    maxExtraTravelMin: 5,
+    maxExtraDistanceKm: 10,
+    maxRelativeCostPenalty: 0.5,
   },
-  {
-    id: "east",
-    name: "East Hub",
-    latitude: 49.05,
-    longitude: -122.3,
-    capacity: 100,
-    color: "#111",
-  },
-];
-
-const postalCodes = [
-  { postal_code: "V6B 1A1", fsa: "V6B", latitude: 49.28, longitude: -123.11, segment: "urban" },
-  { postal_code: "V2S 1A1", fsa: "V2S", latitude: 49.05, longitude: -122.31, segment: "suburban" },
-  { postal_code: "V0M 1A1", fsa: "V0M", latitude: 49.3, longitude: -121.8, segment: "rural" },
-];
-
-assert.equal(nearestHub(postalCodes[0], hubs).hub.id, "west");
-assert.equal(percentile([1, 2, 3, 4, 5], 50), 3);
-assert.equal(percentile([1, 2, 3, 4, 5], 95), 5);
-
-const result = allocatePostalCodes(postalCodes, hubs, {
-  activeHubIds: new Set(["west", "east"]),
-  baseDemand: 1,
-  urbanMultiplier: 1.2,
-  ruralMultiplier: 0.7,
-  capacityMultiplier: 1,
-  distancePenalty: 0,
-});
-assert.equal(result.assignedPostalCodeCount, 3);
-assert.equal(result.activeHubCount, 2);
-assert(result.totalDemand > 2.8 && result.totalDemand < 3.0);
-assert.equal(result.summaries.some((summary) => summary.hub.id === "west"), true);
-
-const eastOnly = allocatePostalCodes(postalCodes, hubs, {
-  activeHubIds: new Set(["east"]),
-  baseDemand: 1,
-  urbanMultiplier: 1,
-  ruralMultiplier: 1,
-  capacityMultiplier: 1,
-  distancePenalty: 0,
-});
-assert.equal(eastOnly.activeHubCount, 1);
-assert.equal(eastOnly.summaries[0].postalCodeCount, 3);
-
-const clusters = buildFsaClusters(
-  [
-    ...postalCodes,
-    { postal_code: "V6B 1A2", fsa: "V6B", latitude: 49.29, longitude: -123.1, segment: "urban" },
+  warningCatalog: ["long route", "snap warning"],
+  facilities: [
+    ["A", "Alpha", "hospital", "1 Alpha Way", 49.1, -122.1, "#2563eb"],
+    ["B", "Bravo", "upcc", "2 Bravo Way", 49.2, -122.2, "#16a34a"],
+    ["C", "Charlie", "upcc", "3 Charlie Way", 49.3, -122.3, "#dc2626"],
   ],
-  {
-    baseDemand: 1,
-    urbanMultiplier: 1,
-    ruralMultiplier: 1,
-  }
-);
-const baseClusters = buildBaseFsaClusters(postalCodes);
-const demandedClusters = applyDemandToClusters(baseClusters, {
-  baseDemand: 1,
-  urbanMultiplier: 1.2,
-  ruralMultiplier: 0.7,
-});
-assert.equal(baseClusters.length, 3);
-assert.equal(demandedClusters.find((cluster) => cluster.fsa === "V6B").demand, 1.2);
-assert.equal(clusters.length, 3);
-assert.equal(clusters.find((cluster) => cluster.fsa === "V6B").postalCodeCount, 2);
-
-const namedHubs = [
-  {
-    id: "vancouver",
-    name: "Vancouver",
-    latitude: 49.2827,
-    longitude: -123.1207,
-    capacity: 2,
-    color: "#2563eb",
-  },
-  {
-    id: "richmond",
-    name: "Richmond",
-    latitude: 49.1666,
-    longitude: -123.1336,
-    capacity: 2,
-    color: "#16a34a",
-  },
-  {
-    id: "abbotsford",
-    name: "Abbotsford",
-    latitude: 49.0504,
-    longitude: -122.3045,
-    capacity: 2,
-    color: "#0891b2",
-  },
-];
-const planOptions = {
-  activeHubIds: new Set(namedHubs.map((hub) => hub.id)),
-  baseDemand: 1,
-  urbanMultiplier: 1,
-  ruralMultiplier: 1,
-  capacityMultiplier: 1,
-  distancePenalty: 0.012,
+  postalCodes: [
+    ["P1", "V1A 1A1", 49.11, -122.11],
+    ["P2", "V1A 1A2", 49.12, -122.12],
+    ["P3", "V1A 1A3", 49.13, -122.13],
+  ],
+  candidates: [
+    [
+      [0, 10, 10, []],
+      [1, 12, 12, []],
+      [2, 14, 14, []],
+    ],
+    [
+      [0, 10, 10, []],
+      [1, 12, 12, []],
+      [2, 14, 14, []],
+    ],
+    [
+      [0, 10, 10, []],
+      [1, 12, 12, []],
+      [2, 14, 14, [0]],
+    ],
+  ],
 };
-const inherited = assignClusters(clusters, namedHubs, planOptions, "inherited");
-const optimized = assignClusters(clusters, namedHubs, planOptions, "optimized");
-assert.equal(inherited.fsaSummaries.length, clusters.length);
-assert.equal(optimized.fsaSummaries.length, clusters.length);
-assert(optimized.summaries.filter((summary) => summary.postalCodeCount > 0).length > 1);
-assert.equal(typeof comparePlans(inherited, optimized).distanceBurdenDeltaKm, "number");
 
-const richmondOnlyCurrent = assignClusters(
-  clusters,
-  namedHubs,
-  { ...planOptions, activeHubIds: new Set(["richmond"]) },
-  "inherited"
-);
-const fullNetworkRecommendation = assignClusters(clusters, namedHubs, planOptions, "optimized");
-assert.equal(
-  richmondOnlyCurrent.summaries.filter((summary) => summary.postalCodeCount > 0).length,
-  1
-);
-assert(fullNetworkRecommendation.summaries.filter((summary) => summary.postalCodeCount > 0).length > 1);
+const data = hydrateDemoData(asset);
+const controls = mergeControls(data.defaults, {
+  activeFacilityIds: new Set(["A", "B", "C"]),
+});
 
-console.log("analytics tests passed");
+assert.equal(vehicleCostPerKm(controls), 0.2);
+assert.equal(routeCostPerVisit(data.postalCodes[0].candidates[0], controls), 12);
+
+const baseline = buildPlan(data, controls, "lowest_cost");
+assert.equal(baseline.assignedPostalCodeCount, 3);
+assert.equal(baseline.exceptionCount, 0);
+assert(baseline.shortfallHours > 1);
+assert.equal(baseline.summaries.find((summary) => summary.facility.id === "A").postalCodeCount, 3);
+
+const optimized = buildPlan(data, controls, "optimized");
+assert.equal(optimized.shortfallHours, 0);
+assert.equal(optimized.exceptionCount, 2);
+assert.equal(optimized.summaries.filter((summary) => summary.postalCodeCount > 0).length, 3);
+assert(comparePlans(baseline, optimized).shortfallHoursDelta < 0);
+assert.equal(classifyVerdict(baseline, optimized).label, "Trade-off");
+
+const tightControls = mergeControls(data.defaults, {
+  activeFacilityIds: new Set(["A", "B", "C"]),
+  maxExtraTravelMin: 1,
+});
+const tightOptimized = buildPlan(data, tightControls, "optimized");
+assert(tightOptimized.shortfallHours > 1);
+assert.equal(classifyVerdict(baseline, tightOptimized).label, "Not feasible");
+
+const ranked = data.postalCodes[0].candidates.map((candidate) => ({
+  ...candidate,
+  routeCost: routeCostPerVisit(candidate, controls),
+}));
+assert.deepEqual(guardrailBreaches(ranked[2], ranked[0], tightControls), ["extra travel time"]);
+
+const qaControls = mergeControls(data.defaults, {
+  activeFacilityIds: new Set(["A", "B", "C"]),
+  includeQaPenalties: true,
+});
+assert(routeCostPerVisit(data.postalCodes[2].candidates[2], qaControls) > 16.8);
+
+console.log("OSRM analytics tests passed");

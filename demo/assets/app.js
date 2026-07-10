@@ -1,38 +1,42 @@
 import {
-  applyDemandToClusters,
-  assignClusters,
+  buildPlan,
+  classifyVerdict,
   comparePlans,
-} from "./analytics.js?v=perf-fsa-20260704";
+  hydrateDemoData,
+  mergeControls,
+  vehicleCostPerKm,
+} from "./analytics.js?v=osrm-home-health-20260710";
 
 const state = {
-  baseClusters: [],
-  clusters: [],
-  hubs: [],
-  summary: null,
-  activeHubIds: new Set(),
-  optimizedHubIds: new Set(),
-  initialResult: null,
-  optimizedResult: null,
-  currentResult: null,
-  isReallocated: false,
-  controls: {
-    baseDemand: 0.9,
-    urbanMultiplier: 1.18,
-    ruralMultiplier: 0.72,
-    capacityMultiplier: 1.8,
-    distancePenalty: 0.012,
-  },
+  data: null,
+  activeFacilityIds: new Set(),
+  baselinePlan: null,
+  optimizedPlan: null,
+  currentPlan: null,
+  showOptimized: false,
+  controls: {},
   layers: {
-    fsa: null,
-    hubs: null,
+    postalCodes: null,
+    facilities: null,
   },
   recalculateTimer: null,
 };
 
 const formatNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 0 });
-const formatDecimal = new Intl.NumberFormat("en-CA", {
+const formatOne = new Intl.NumberFormat("en-CA", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
+});
+const formatMoney = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  maximumFractionDigits: 0,
+});
+const formatMoneyOne = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 const formatPercent = new Intl.NumberFormat("en-CA", {
   style: "percent",
@@ -45,7 +49,7 @@ const map = L.map("map", {
   fadeAnimation: false,
   markerZoomAnimation: false,
   zoomAnimation: false,
-}).setView([49.205, -122.72], 9);
+}).setView([49.18, -122.55], 9);
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -54,190 +58,254 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   updateWhenIdle: true,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
-const fsaRenderer = L.canvas({ padding: 0.5 });
+const postalRenderer = L.canvas({ padding: 0.5 });
 
 function setText(id, value) {
-  document.getElementById(id).textContent = value;
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setClassName(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.className = value;
+  }
 }
 
 function readControls() {
-  state.controls.baseDemand = Number(document.getElementById("baseDemand").value);
-  state.controls.urbanMultiplier = Number(document.getElementById("urbanMultiplier").value);
-  state.controls.ruralMultiplier = Number(document.getElementById("ruralMultiplier").value);
-  state.controls.capacityMultiplier = Number(document.getElementById("capacityMultiplier").value);
-  state.controls.distancePenalty = Number(document.getElementById("distancePenalty").value);
-  setText("baseDemandValue", state.controls.baseDemand.toFixed(1));
-  setText("urbanMultiplierValue", state.controls.urbanMultiplier.toFixed(2));
-  setText("ruralMultiplierValue", state.controls.ruralMultiplier.toFixed(2));
-  setText("capacityMultiplierValue", state.controls.capacityMultiplier.toFixed(2));
-  setText("distancePenaltyValue", state.controls.distancePenalty.toFixed(3));
+  const controls = mergeControls(state.data.defaults, {
+    laborCostPerHour: Number(document.getElementById("laborCostPerHour").value),
+    gasPricePerLitre: Number(document.getElementById("gasPricePerLitre").value),
+    fuelConsumptionLPer100Km: Number(document.getElementById("fuelConsumptionLPer100Km").value),
+    maintenanceCostPerKm: Number(document.getElementById("maintenanceCostPerKm").value),
+    visitsPerPostalCode: Number(document.getElementById("visitsPerPostalCode").value),
+    visitDurationMin: Number(document.getElementById("visitDurationMin").value),
+    capacityHoursPerFacility: Number(document.getElementById("capacityHoursPerFacility").value),
+    maxExtraTravelMin: Number(document.getElementById("maxExtraTravelMin").value),
+    maxExtraDistanceKm: Number(document.getElementById("maxExtraDistanceKm").value),
+    maxRelativeCostPenalty: Number(document.getElementById("maxRelativeCostPenalty").value),
+    allowGuardrailExceptions: document.getElementById("allowGuardrailExceptions").checked,
+    includeQaPenalties: document.getElementById("includeQaPenalties").checked,
+    activeFacilityIds: state.activeFacilityIds,
+  });
+  state.controls = controls;
+  setText("laborCostPerHourValue", formatMoney.format(controls.laborCostPerHour));
+  setText("gasPricePerLitreValue", formatMoneyOne.format(controls.gasPricePerLitre));
+  setText("fuelConsumptionValue", `${formatOne.format(controls.fuelConsumptionLPer100Km)} L/100 km`);
+  setText("maintenanceCostValue", formatMoneyOne.format(controls.maintenanceCostPerKm));
+  setText("vehicleCostValue", `${formatMoneyOne.format(vehicleCostPerKm(controls))}/km`);
+  setText("visitsPerPostalCodeValue", controls.visitsPerPostalCode.toFixed(2));
+  setText("visitDurationValue", `${formatNumber.format(controls.visitDurationMin)} min`);
+  setText("capacityHoursValue", `${formatNumber.format(controls.capacityHoursPerFacility)} h`);
+  setText("maxExtraTravelValue", `${formatNumber.format(controls.maxExtraTravelMin)} min`);
+  setText("maxExtraDistanceValue", `${formatNumber.format(controls.maxExtraDistanceKm)} km`);
+  setText("maxRelativeCostValue", formatPercent.format(controls.maxRelativeCostPenalty));
+  return controls;
 }
 
-function renderHubControls() {
-  const container = document.getElementById("hubControls");
+function renderFacilityControls() {
+  const container = document.getElementById("facilityControls");
   container.replaceChildren();
-  for (const hub of state.hubs) {
+  for (const facility of state.data.facilities) {
     const label = document.createElement("label");
     label.className = "hub-toggle";
-    label.style.setProperty("--hub-color", hub.color);
+    label.style.setProperty("--hub-color", facility.color);
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = state.activeHubIds.has(hub.id);
+    checkbox.checked = state.activeFacilityIds.has(facility.id);
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) {
-        state.activeHubIds.add(hub.id);
-      } else if (state.activeHubIds.size > 1) {
-        state.activeHubIds.delete(hub.id);
+        state.activeFacilityIds.add(facility.id);
+      } else if (state.activeFacilityIds.size > 1) {
+        state.activeFacilityIds.delete(facility.id);
       } else {
         checkbox.checked = true;
       }
-      state.isReallocated = false;
+      state.showOptimized = false;
       recalculatePlans({ renderMapNow: true });
     });
     const span = document.createElement("span");
-    span.textContent = hub.name;
+    span.textContent = facility.name;
     label.append(checkbox, span);
     container.append(label);
   }
 }
 
-function renderMap(result) {
-  state.layers.fsa.clearLayers();
-  state.layers.hubs.clearLayers();
+function popupForAssignment(assignment) {
+  const warnings = assignment.warnings.length ? assignment.warnings.join(", ") : "none";
+  const exception = assignment.facility.id !== assignment.bestFacility.id;
+  return `
+    <strong>${assignment.postalCode}</strong><br>
+    Assigned: ${assignment.facility.name}<br>
+    Lowest cost: ${assignment.bestFacility.name}<br>
+    Travel: ${formatOne.format(assignment.durationMin)} min, ${formatOne.format(assignment.distanceKm)} km<br>
+    Cost per visit: ${formatMoneyOne.format(assignment.routeCost)}<br>
+    Weekly visits: ${formatOne.format(assignment.visits)}<br>
+    ${exception ? `Extra: ${formatOne.format(assignment.extraMinutes)} min, ${formatMoneyOne.format(assignment.extraCostPerVisit)} per visit<br>` : ""}
+    Warnings: ${warnings}
+  `;
+}
 
-  for (const fsa of result.fsaSummaries) {
-    const radius = Math.max(5, Math.min(20, Math.sqrt(fsa.postalCodeCount) * 0.55));
-    L.circleMarker([fsa.latitude, fsa.longitude], {
-      renderer: fsaRenderer,
-      radius,
-      color: "#111827",
-      weight: 1,
-      fillColor: fsa.color,
-      fillOpacity: state.isReallocated ? 0.68 : 0.48,
+function renderMap(result) {
+  state.layers.postalCodes.clearLayers();
+  state.layers.facilities.clearLayers();
+
+  for (const assignment of result.assignments) {
+    const isMoved = assignment.facility.id !== assignment.bestFacility.id;
+    const hasWarning = assignment.warnings.length > 0 || assignment.breaches.length > 0;
+    L.circleMarker([assignment.latitude, assignment.longitude], {
+      renderer: postalRenderer,
+      radius: isMoved ? 4.8 : 2.8,
+      color: hasWarning ? "#92400e" : "#111827",
+      weight: isMoved || hasWarning ? 1.4 : 0.45,
+      fillColor: assignment.facility.color,
+      fillOpacity: isMoved ? 0.82 : 0.58,
     })
-      .bindPopup(
-        `<strong>${fsa.fsa}</strong><br>${fsa.hubName}<br>${formatNumber.format(
-          fsa.postalCodeCount
-        )} postal codes<br>${formatNumber.format(fsa.demand)} demand units`
-      )
-      .addTo(state.layers.fsa);
+      .bindPopup(popupForAssignment(assignment))
+      .addTo(state.layers.postalCodes);
   }
 
-  const visibleHubIds = new Set(result.summaries.map((summary) => summary.hub.id));
-  for (const hub of state.hubs.filter((item) => visibleHubIds.has(item.id))) {
+  const visibleFacilityIds = new Set(result.summaries.filter((item) => item.postalCodeCount > 0).map((item) => item.facility.id));
+  for (const facility of state.data.facilities.filter((item) => visibleFacilityIds.has(item.id))) {
     const icon = L.divIcon({
       className: "hub-marker",
-      html: `<span style="background:${hub.color}"></span>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
+      html: `<span style="background:${facility.color}"></span>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
     });
-    L.marker([hub.latitude, hub.longitude], { icon })
-      .bindPopup(`<strong>${hub.name}</strong><br>${hub.municipality}`)
-      .addTo(state.layers.hubs);
+    L.marker([facility.latitude, facility.longitude], { icon })
+      .bindPopup(`<strong>${facility.name}</strong><br>${facility.type}<br>${facility.address}`)
+      .addTo(state.layers.facilities);
   }
 }
 
 function renderKpis(result) {
   setText("postalCount", formatNumber.format(result.assignedPostalCodeCount));
-  setText("demandCount", formatNumber.format(result.totalDemand));
-  setText("medianProxy", `${formatDecimal.format(result.medianDistanceKm)} km`);
-  setText("p95Proxy", `${formatDecimal.format(result.p95DistanceKm)} km`);
-  setText("imbalanceScore", formatPercent.format(result.imbalanceScore));
-  setText("overloadedHubs", formatNumber.format(result.overloadedHubCount));
-  setText("datasetShape", `${formatNumber.format(result.fsaCount)} FSA clusters`);
-  setText("planMode", state.isReallocated ? "Reallocated plan" : "Initial service plan");
+  setText("weeklyCost", formatMoney.format(result.weeklyCost));
+  setText("weeklyTravelHours", `${formatNumber.format(result.weeklyTravelHours)} h`);
+  setText("vehicleCost", formatMoney.format(result.weeklyVehicleCost));
+  setText("p95TravelTime", `${formatOne.format(result.p95DurationMin)} min`);
+  setText("capacityShortfall", `${formatOne.format(result.shortfallHours)} h`);
+  setText("exceptionCount", formatNumber.format(result.exceptionCount));
+  setText("datasetShape", `${formatNumber.format(result.assignedPostalCodeCount)} postal codes`);
+  setText("planMode", state.showOptimized ? "Capacity-aware plan" : "Lowest-cost baseline");
   setText(
     "networkMode",
-    state.isReallocated
-      ? `${result.activeHubCount} recommended hubs`
-      : `${result.activeHubCount} current-plan hubs`
+    `${formatNumber.format(result.activeFacilityCount)} facilities | ${formatNumber.format(result.totalVisits)} modeled weekly visits`
   );
 }
 
-function renderTable(result) {
+function renderVerdict(result) {
+  const verdict = state.showOptimized
+    ? classifyVerdict(state.baselinePlan, state.optimizedPlan)
+    : {
+        label: result.shortfallHours > 0.1 ? "Baseline overloaded" : "Baseline feasible",
+        tone: result.shortfallHours > 0.1 ? "warn" : "good",
+        message:
+          result.shortfallHours > 0.1
+            ? "The lowest-cost plan is cheapest by route, but it exceeds available weekly capacity. Optimize to rebalance within guardrails."
+            : "The lowest-cost plan is feasible under the current capacity assumptions. Optimization should avoid adding cost unless constraints change.",
+      };
+  setText("verdictLabel", verdict.label);
+  setClassName("verdictLabel", `verdict ${verdict.tone}`);
+  setText("scenarioNarrative", verdict.message);
+}
+
+function renderComparison() {
+  if (!state.baselinePlan || !state.optimizedPlan) {
+    return;
+  }
+  const delta = comparePlans(state.baselinePlan, state.optimizedPlan);
+  setText("baselineCost", formatMoney.format(state.baselinePlan.weeklyCost));
+  setText("optimizedCost", state.showOptimized ? formatMoney.format(state.optimizedPlan.weeklyCost) : "-");
+  setText("baselineP95", `${formatOne.format(state.baselinePlan.p95DurationMin)} min`);
+  setText("optimizedP95", state.showOptimized ? `${formatOne.format(state.optimizedPlan.p95DurationMin)} min` : "-");
+  setText("baselineShortfall", `${formatOne.format(state.baselinePlan.shortfallHours)} h`);
+  setText("optimizedShortfall", state.showOptimized ? `${formatOne.format(state.optimizedPlan.shortfallHours)} h` : "-");
+  setText(
+    "costDelta",
+    state.showOptimized
+      ? `${delta.weeklyCostDelta <= 0 ? "-" : "+"}${formatMoney.format(Math.abs(delta.weeklyCostDelta))}`
+      : "Run optimization"
+  );
+  setText(
+    "hoursDelta",
+    state.showOptimized
+      ? `${delta.weeklyTravelHoursDelta <= 0 ? "-" : "+"}${formatOne.format(Math.abs(delta.weeklyTravelHoursDelta))} h`
+      : "-"
+  );
+  setText(
+    "shortfallDelta",
+    state.showOptimized
+      ? `${delta.shortfallHoursDelta <= 0 ? "-" : "+"}${formatOne.format(Math.abs(delta.shortfallHoursDelta))} h`
+      : "-"
+  );
+}
+
+function renderFacilityTable(result) {
   const tbody = document.getElementById("allocationBody");
   tbody.replaceChildren();
-  for (const summary of result.summaries) {
+  for (const summary of result.summaries.filter((item) => item.postalCodeCount > 0)) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><span class="swatch" style="background:${summary.hub.color}"></span>${summary.hub.name}</td>
+      <td><span class="swatch" style="background:${summary.facility.color}"></span>${summary.facility.name}</td>
       <td>${formatNumber.format(summary.postalCodeCount)}</td>
-      <td>${formatNumber.format(summary.demand)}</td>
+      <td>${formatOne.format(summary.visits)}</td>
       <td>${formatPercent.format(summary.utilization)}</td>
-      <td>${formatDecimal.format(summary.p95DistanceKm)} km</td>
+      <td>${formatOne.format(summary.p95DurationMin)} min</td>
+      <td>${formatMoney.format(summary.weeklyCost)}</td>
     `;
-    if (summary.overloaded) {
+    if (summary.shortfallHours > 0.1) {
       tr.classList.add("overloaded");
     }
     tbody.append(tr);
   }
 }
 
-function renderNarrative(result) {
-  const heaviest = result.summaries[0];
-  const lightest = result.summaries[result.summaries.length - 1];
-  let message;
-  if (state.isReallocated && state.initialResult && state.optimizedResult) {
-    const delta = comparePlans(state.initialResult, state.optimizedResult);
-    const burdenVerb = delta.distanceBurdenDeltaKm < 0 ? "reduces" : "increases";
-    message = `Reallocation ${burdenVerb} modelled travel burden by ${formatNumber.format(
-      Math.abs(delta.distanceBurdenDeltaKm)
-    )} km-demand units and changes the 95th percentile proxy by ${formatDecimal.format(
-      delta.p95DistanceDeltaKm
-    )} km.`;
-  } else if (result.overloadedHubCount > 0) {
-    message = `${result.overloadedHubCount} hub(s) exceed the current capacity assumption in the inherited plan. Reallocate to redraw clusters and compare the operating trade-off.`;
-  } else {
-    message = `The inherited plan keeps all active hubs within capacity. ${heaviest.hub.name} carries the largest modelled demand while ${lightest.hub.name} carries the lightest.`;
-  }
-  setText("scenarioNarrative", message);
-}
-
-function renderComparison() {
-  if (!state.initialResult || !state.optimizedResult) {
+function renderExceptionTable(result) {
+  const tbody = document.getElementById("exceptionBody");
+  tbody.replaceChildren();
+  const exceptions = result.exceptions.slice(0, 80);
+  if (!exceptions.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="7" class="empty-cell">No assignment exceptions under the current plan.</td>`;
+    tbody.append(tr);
     return;
   }
-  const before = state.initialResult;
-  const after = state.optimizedResult;
-  const delta = comparePlans(before, after);
-  setText("beforeP95", `${formatDecimal.format(before.p95DistanceKm)} km`);
-  setText("afterP95", state.isReallocated ? `${formatDecimal.format(after.p95DistanceKm)} km` : "-");
-  setText("beforeImbalance", formatPercent.format(before.imbalanceScore));
-  setText("afterImbalance", state.isReallocated ? formatPercent.format(after.imbalanceScore) : "-");
-  setText("beforeOverloaded", formatNumber.format(before.overloadedHubCount));
-  setText("afterOverloaded", state.isReallocated ? formatNumber.format(after.overloadedHubCount) : "-");
-  setText(
-    "travelBurdenDelta",
-    state.isReallocated
-      ? `${delta.distanceBurdenDeltaKm <= 0 ? "-" : "+"}${formatNumber.format(
-          Math.abs(delta.distanceBurdenDeltaKm)
-        )}`
-      : "Run reallocation"
-  );
+  for (const assignment of exceptions) {
+    const reasonParts = [];
+    if (assignment.facility.id !== assignment.bestFacility.id) {
+      reasonParts.push(assignment.reason);
+    }
+    reasonParts.push(...assignment.breaches, ...assignment.warnings);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${assignment.postalCode}</td>
+      <td>${assignment.facility.name}</td>
+      <td>${assignment.bestFacility.name}</td>
+      <td>${formatOne.format(assignment.extraMinutes)} min</td>
+      <td>${formatOne.format(assignment.extraDistanceKm)} km</td>
+      <td>${formatMoneyOne.format(assignment.extraCostPerVisit)}</td>
+      <td>${reasonParts.join(", ") || "review"}</td>
+    `;
+    tbody.append(tr);
+  }
 }
 
 function recalculatePlans({ renderMapNow = true } = {}) {
-  readControls();
-  state.clusters = applyDemandToClusters(state.baseClusters, state.controls);
-  state.optimizedHubIds = new Set(state.hubs.map((hub) => hub.id));
-  const currentOptions = {
-    ...state.controls,
-    activeHubIds: state.activeHubIds,
-  };
-  const optimizedOptions = {
-    ...state.controls,
-    activeHubIds: state.optimizedHubIds,
-  };
-  state.initialResult = assignClusters(state.clusters, state.hubs, currentOptions, "inherited");
-  state.optimizedResult = assignClusters(state.clusters, state.hubs, optimizedOptions, "optimized");
-  state.currentResult = state.isReallocated ? state.optimizedResult : state.initialResult;
-  const result = state.currentResult;
-  renderKpis(result);
-  renderTable(result);
-  renderNarrative(result);
+  const controls = readControls();
+  state.baselinePlan = buildPlan(state.data, controls, "lowest_cost");
+  state.optimizedPlan = buildPlan(state.data, controls, "optimized");
+  state.currentPlan = state.showOptimized ? state.optimizedPlan : state.baselinePlan;
+  renderKpis(state.currentPlan);
+  renderVerdict(state.currentPlan);
   renderComparison();
+  renderFacilityTable(state.currentPlan);
+  renderExceptionTable(state.currentPlan);
   if (renderMapNow) {
-    requestAnimationFrame(() => renderMap(result));
+    requestAnimationFrame(() => renderMap(state.currentPlan));
   }
 }
 
@@ -249,7 +317,7 @@ function scheduleRecalculatePlans() {
   state.recalculateTimer = window.setTimeout(() => {
     state.recalculateTimer = null;
     recalculatePlans({ renderMapNow: true });
-  }, 120);
+  }, 180);
 }
 
 function stepControl(controlId, direction) {
@@ -264,13 +332,13 @@ function stepControl(controlId, direction) {
   scheduleRecalculatePlans();
 }
 
-function reallocateNow() {
-  state.isReallocated = true;
+function showOptimizedPlan() {
+  state.showOptimized = true;
   recalculatePlans({ renderMapNow: true });
 }
 
-function resetToInitialPlan() {
-  state.isReallocated = false;
+function showBaselinePlan() {
+  state.showOptimized = false;
   recalculatePlans({ renderMapNow: true });
 }
 
@@ -282,29 +350,47 @@ async function loadJson(path) {
   return response.json();
 }
 
+function initializeControls(defaults) {
+  for (const [id, value] of Object.entries({
+    laborCostPerHour: defaults.laborCostPerHour,
+    gasPricePerLitre: defaults.gasPricePerLitre,
+    fuelConsumptionLPer100Km: defaults.fuelConsumptionLPer100Km,
+    maintenanceCostPerKm: defaults.maintenanceCostPerKm,
+    visitsPerPostalCode: defaults.visitsPerPostalCode,
+    visitDurationMin: defaults.visitDurationMin,
+    capacityHoursPerFacility: defaults.capacityHoursPerFacility,
+    maxExtraTravelMin: defaults.maxExtraTravelMin,
+    maxExtraDistanceKm: defaults.maxExtraDistanceKm,
+    maxRelativeCostPenalty: defaults.maxRelativeCostPenalty,
+  })) {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = String(value);
+    }
+  }
+}
+
 async function init() {
-  const [baseClusters, hubs, summary] = await Promise.all([
-    loadJson("./data/lower-mainland-fsa-clusters.json"),
-    loadJson("./data/service-hubs.json"),
-    loadJson("./data/demo-summary.json"),
-  ]);
-  state.baseClusters = baseClusters;
-  state.hubs = hubs;
-  state.summary = summary;
-  state.activeHubIds = new Set(hubs.map((hub) => hub.id));
-  state.layers.fsa = L.layerGroup().addTo(map);
-  state.layers.hubs = L.layerGroup().addTo(map);
-  renderHubControls();
+  const asset = await loadJson("./data/fha-home-health-demo.json");
+  state.data = hydrateDemoData(asset);
+  initializeControls(mergeControls(state.data.defaults));
+  state.activeFacilityIds = new Set(state.data.facilities.map((facility) => facility.id));
+  state.layers.postalCodes = L.layerGroup().addTo(map);
+  state.layers.facilities = L.layerGroup().addTo(map);
+  renderFacilityControls();
   for (const input of document.querySelectorAll("input[type='range']")) {
     input.addEventListener("input", scheduleRecalculatePlans);
+  }
+  for (const checkbox of document.querySelectorAll("input[type='checkbox'].scenario-toggle")) {
+    checkbox.addEventListener("change", scheduleRecalculatePlans);
   }
   for (const button of document.querySelectorAll(".stepper")) {
     button.addEventListener("click", () => {
       stepControl(button.dataset.control, Number(button.dataset.step));
     });
   }
-  document.getElementById("reallocateButton").addEventListener("click", reallocateNow);
-  document.getElementById("resetButton").addEventListener("click", resetToInitialPlan);
+  document.getElementById("optimizeButton").addEventListener("click", showOptimizedPlan);
+  document.getElementById("baselineButton").addEventListener("click", showBaselinePlan);
   recalculatePlans();
   document.body.classList.add("ready");
 }
@@ -312,5 +398,5 @@ async function init() {
 init().catch((error) => {
   console.error(error);
   document.getElementById("scenarioNarrative").textContent =
-    "The demo data could not be loaded. Check the GitHub Pages asset paths.";
+    "The OSRM demo data could not be loaded. Check the GitHub Pages asset paths.";
 });
