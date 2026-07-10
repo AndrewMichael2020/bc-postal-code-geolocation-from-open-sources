@@ -259,10 +259,6 @@ def build_asset(args: argparse.Namespace) -> dict[str, Any]:
             "maintenanceCostPerKm": args.maintenance_cost_per_km,
             "visitsPerPostalCode": 0.05,
             "visitDurationMin": 45,
-            "capacityHoursPerFacility": 110,
-            "maxExtraTravelMin": 10,
-            "maxExtraDistanceKm": 10,
-            "maxRelativeCostPenalty": 0.25,
         },
         "warningCatalog": WARNING_CATALOG,
         "columns": {

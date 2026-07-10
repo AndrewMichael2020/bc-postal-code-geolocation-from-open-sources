@@ -66,7 +66,9 @@ The repository includes a static GitHub Pages demo for Fraser Health home health
 
 [Fraser Health Home Health Territory Planner](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
 
-The demo is a management scenario workspace for longitudinal home health visits. It uses OSRM road travel time and distance from the Fraser Health postal-code-to-facility dataset, then converts travel into an operating-cost estimate using provider time, gas, fuel consumption, and vehicle maintenance assumptions.
+The demo is a management scenario workspace for longitudinal home health visits. It uses OSRM road travel time and distance from the Fraser Health postal-code-to-facility dataset, then converts one travel leg per modeled visit into a comparative travel-cost estimate using provider time, gas, fuel consumption, and vehicle maintenance assumptions.
+
+Every postal code is mapped to its lowest-cost available OSRM facility route. Facility capacity is not treated as a constraint: all provider-base placeholders can absorb the modeled work. The demo reports estimated weekly service hours and workload share by facility for analytics only, and facility marker size automatically scales to the busiest base in the current scenario.
 
 The demo no longer uses straight-line distance, fictional hubs, or FSA centroid clusters. It loads a compact browser asset generated from the Git LFS dataset at `outputs/fha_golden_distances_times.csv`:
 

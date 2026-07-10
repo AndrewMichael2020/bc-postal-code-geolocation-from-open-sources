@@ -1,19 +1,14 @@
 import {
   buildPlan,
-  classifyVerdict,
-  comparePlans,
   hydrateDemoData,
   mergeControls,
   vehicleCostPerKm,
-} from "./analytics.js?v=osrm-home-health-20260710";
+} from "./analytics.js?v=osrm-home-health-20260710b";
 
 const state = {
   data: null,
   activeFacilityIds: new Set(),
-  baselinePlan: null,
-  optimizedPlan: null,
   currentPlan: null,
-  showOptimized: false,
   controls: {},
   layers: {
     postalCodes: null,
@@ -82,11 +77,6 @@ function readControls() {
     maintenanceCostPerKm: Number(document.getElementById("maintenanceCostPerKm").value),
     visitsPerPostalCode: Number(document.getElementById("visitsPerPostalCode").value),
     visitDurationMin: Number(document.getElementById("visitDurationMin").value),
-    capacityHoursPerFacility: Number(document.getElementById("capacityHoursPerFacility").value),
-    maxExtraTravelMin: Number(document.getElementById("maxExtraTravelMin").value),
-    maxExtraDistanceKm: Number(document.getElementById("maxExtraDistanceKm").value),
-    maxRelativeCostPenalty: Number(document.getElementById("maxRelativeCostPenalty").value),
-    allowGuardrailExceptions: document.getElementById("allowGuardrailExceptions").checked,
     includeQaPenalties: document.getElementById("includeQaPenalties").checked,
     activeFacilityIds: state.activeFacilityIds,
   });
@@ -98,53 +88,18 @@ function readControls() {
   setText("vehicleCostValue", `${formatMoneyOne.format(vehicleCostPerKm(controls))}/km`);
   setText("visitsPerPostalCodeValue", controls.visitsPerPostalCode.toFixed(2));
   setText("visitDurationValue", `${formatNumber.format(controls.visitDurationMin)} min`);
-  setText("capacityHoursValue", `${formatNumber.format(controls.capacityHoursPerFacility)} h`);
-  setText("maxExtraTravelValue", `${formatNumber.format(controls.maxExtraTravelMin)} min`);
-  setText("maxExtraDistanceValue", `${formatNumber.format(controls.maxExtraDistanceKm)} km`);
-  setText("maxRelativeCostValue", formatPercent.format(controls.maxRelativeCostPenalty));
   return controls;
-}
-
-function renderFacilityControls() {
-  const container = document.getElementById("facilityControls");
-  container.replaceChildren();
-  for (const facility of state.data.facilities) {
-    const label = document.createElement("label");
-    label.className = "hub-toggle";
-    label.style.setProperty("--hub-color", facility.color);
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = state.activeFacilityIds.has(facility.id);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        state.activeFacilityIds.add(facility.id);
-      } else if (state.activeFacilityIds.size > 1) {
-        state.activeFacilityIds.delete(facility.id);
-      } else {
-        checkbox.checked = true;
-      }
-      state.showOptimized = false;
-      recalculatePlans({ renderMapNow: true });
-    });
-    const span = document.createElement("span");
-    span.textContent = facility.name;
-    label.append(checkbox, span);
-    container.append(label);
-  }
 }
 
 function popupForAssignment(assignment) {
   const warnings = assignment.warnings.length ? assignment.warnings.join(", ") : "none";
-  const exception = assignment.facility.id !== assignment.bestFacility.id;
   return `
     <strong>${assignment.postalCode}</strong><br>
-    Assigned: ${assignment.facility.name}<br>
-    Lowest cost: ${assignment.bestFacility.name}<br>
+    Provider base: ${assignment.facility.name}<br>
     Travel: ${formatOne.format(assignment.durationMin)} min, ${formatOne.format(assignment.distanceKm)} km<br>
     Cost per visit: ${formatMoneyOne.format(assignment.routeCost)}<br>
     Weekly visits: ${formatOne.format(assignment.visits)}<br>
-    ${exception ? `Extra: ${formatOne.format(assignment.extraMinutes)} min, ${formatMoneyOne.format(assignment.extraCostPerVisit)} per visit<br>` : ""}
-    Warnings: ${warnings}
+    Route considerations: ${warnings}
   `;
 }
 
@@ -153,30 +108,34 @@ function renderMap(result) {
   state.layers.facilities.clearLayers();
 
   for (const assignment of result.assignments) {
-    const isMoved = assignment.facility.id !== assignment.bestFacility.id;
-    const hasWarning = assignment.warnings.length > 0 || assignment.breaches.length > 0;
+    const hasWarning = assignment.warnings.length > 0;
     L.circleMarker([assignment.latitude, assignment.longitude], {
       renderer: postalRenderer,
-      radius: isMoved ? 4.8 : 2.8,
+      radius: 2.8,
       color: hasWarning ? "#92400e" : "#111827",
-      weight: isMoved || hasWarning ? 1.4 : 0.45,
+      weight: hasWarning ? 1.4 : 0.45,
       fillColor: assignment.facility.color,
-      fillOpacity: isMoved ? 0.82 : 0.58,
+      fillOpacity: 0.58,
     })
       .bindPopup(popupForAssignment(assignment))
       .addTo(state.layers.postalCodes);
   }
 
-  const visibleFacilityIds = new Set(result.summaries.filter((item) => item.postalCodeCount > 0).map((item) => item.facility.id));
-  for (const facility of state.data.facilities.filter((item) => visibleFacilityIds.has(item.id))) {
-    const icon = L.divIcon({
-      className: "hub-marker",
-      html: `<span style="background:${facility.color}"></span>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-    });
-    L.marker([facility.latitude, facility.longitude], { icon })
-      .bindPopup(`<strong>${facility.name}</strong><br>${facility.type}<br>${facility.address}`)
+  for (const summary of result.summaries.filter((item) => item.postalCodeCount > 0)) {
+    const { facility } = summary;
+    const radius = 8 + 12 * Math.sqrt(summary.workloadIndex);
+    L.circleMarker([facility.latitude, facility.longitude], {
+      radius,
+      color: "#ffffff",
+      weight: 2.5,
+      fillColor: facility.color,
+      fillOpacity: 0.96,
+    })
+      .bindPopup(
+        `<strong>${facility.name}</strong><br>${facility.type}<br>${facility.address}<br>` +
+          `Modeled weekly service: ${formatOne.format(summary.serviceHours)} h<br>` +
+          `Share of modeled work: ${formatPercent.format(summary.workloadShare)}`
+      )
       .addTo(state.layers.facilities);
   }
 }
@@ -187,10 +146,13 @@ function renderKpis(result) {
   setText("weeklyTravelHours", `${formatNumber.format(result.weeklyTravelHours)} h`);
   setText("vehicleCost", formatMoney.format(result.weeklyVehicleCost));
   setText("p95TravelTime", `${formatOne.format(result.p95DurationMin)} min`);
-  setText("capacityShortfall", `${formatOne.format(result.shortfallHours)} h`);
-  setText("exceptionCount", formatNumber.format(result.exceptionCount));
+  setText("totalServiceHours", `${formatNumber.format(result.totalServiceHours)} h`);
+  setText("routeNoteCount", formatNumber.format(result.routeNoteCount));
+  setText("coverageRate", formatPercent.format(result.coverageRate));
+  setText("busiestBaseHours", `${formatOne.format(result.workloadCeilingHours)} h`);
+  setText("averageBaseHours", `${formatOne.format(result.averageServiceHours)} h`);
   setText("datasetShape", `${formatNumber.format(result.assignedPostalCodeCount)} postal codes`);
-  setText("planMode", state.showOptimized ? "Capacity-aware plan" : "Lowest-cost baseline");
+  setText("planMode", "Travel-efficient plan");
   setText(
     "networkMode",
     `${formatNumber.format(result.activeFacilityCount)} facilities | ${formatNumber.format(result.totalVisits)} modeled weekly visits`
@@ -198,49 +160,11 @@ function renderKpis(result) {
 }
 
 function renderVerdict(result) {
-  const verdict = state.showOptimized
-    ? classifyVerdict(state.baselinePlan, state.optimizedPlan)
-    : {
-        label: result.shortfallHours > 0.1 ? "Baseline overloaded" : "Baseline feasible",
-        tone: result.shortfallHours > 0.1 ? "warn" : "good",
-        message:
-          result.shortfallHours > 0.1
-            ? "The lowest-cost plan is cheapest by route, but it exceeds available weekly capacity. Optimize to rebalance within guardrails."
-            : "The lowest-cost plan is feasible under the current capacity assumptions. Optimization should avoid adding cost unless constraints change.",
-      };
-  setText("verdictLabel", verdict.label);
-  setClassName("verdictLabel", `verdict ${verdict.tone}`);
-  setText("scenarioNarrative", verdict.message);
-}
-
-function renderComparison() {
-  if (!state.baselinePlan || !state.optimizedPlan) {
-    return;
-  }
-  const delta = comparePlans(state.baselinePlan, state.optimizedPlan);
-  setText("baselineCost", formatMoney.format(state.baselinePlan.weeklyCost));
-  setText("optimizedCost", state.showOptimized ? formatMoney.format(state.optimizedPlan.weeklyCost) : "-");
-  setText("baselineP95", `${formatOne.format(state.baselinePlan.p95DurationMin)} min`);
-  setText("optimizedP95", state.showOptimized ? `${formatOne.format(state.optimizedPlan.p95DurationMin)} min` : "-");
-  setText("baselineShortfall", `${formatOne.format(state.baselinePlan.shortfallHours)} h`);
-  setText("optimizedShortfall", state.showOptimized ? `${formatOne.format(state.optimizedPlan.shortfallHours)} h` : "-");
+  setText("verdictLabel", "Coverage mapped");
+  setClassName("verdictLabel", "verdict good");
   setText(
-    "costDelta",
-    state.showOptimized
-      ? `${delta.weeklyCostDelta <= 0 ? "-" : "+"}${formatMoney.format(Math.abs(delta.weeklyCostDelta))}`
-      : "Run optimization"
-  );
-  setText(
-    "hoursDelta",
-    state.showOptimized
-      ? `${delta.weeklyTravelHoursDelta <= 0 ? "-" : "+"}${formatOne.format(Math.abs(delta.weeklyTravelHoursDelta))} h`
-      : "-"
-  );
-  setText(
-    "shortfallDelta",
-    state.showOptimized
-      ? `${delta.shortfallHoursDelta <= 0 ? "-" : "+"}${formatOne.format(Math.abs(delta.shortfallHoursDelta))} h`
-      : "-"
+    "scenarioNarrative",
+    `${formatNumber.format(result.assignedPostalCodeCount)} postal codes are matched to their lowest-cost available OSRM route across ${formatNumber.format(result.activeFacilityCount)} provider bases. Facility hours describe modeled workload only.`
   );
 }
 
@@ -253,42 +177,36 @@ function renderFacilityTable(result) {
       <td><span class="swatch" style="background:${summary.facility.color}"></span>${summary.facility.name}</td>
       <td>${formatNumber.format(summary.postalCodeCount)}</td>
       <td>${formatOne.format(summary.visits)}</td>
-      <td>${formatPercent.format(summary.utilization)}</td>
+      <td>${formatOne.format(summary.serviceHours)} h</td>
+      <td>${formatPercent.format(summary.workloadShare)}</td>
       <td>${formatOne.format(summary.p95DurationMin)} min</td>
       <td>${formatMoney.format(summary.weeklyCost)}</td>
     `;
-    if (summary.shortfallHours > 0.1) {
-      tr.classList.add("overloaded");
-    }
     tbody.append(tr);
   }
 }
 
-function renderExceptionTable(result) {
-  const tbody = document.getElementById("exceptionBody");
+function renderRouteNotesTable(result) {
+  const tbody = document.getElementById("routeNotesBody");
   tbody.replaceChildren();
-  const exceptions = result.exceptions.slice(0, 80);
-  if (!exceptions.length) {
+  const routeNotes = result.routeNotes.slice(0, 80);
+  if (!routeNotes.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="7" class="empty-cell">No assignment exceptions under the current plan.</td>`;
+    tr.innerHTML = `<td colspan="6" class="empty-cell">No additional route considerations in this view.</td>`;
     tbody.append(tr);
     return;
   }
-  for (const assignment of exceptions) {
+  for (const assignment of routeNotes) {
     const reasonParts = [];
-    if (assignment.facility.id !== assignment.bestFacility.id) {
-      reasonParts.push(assignment.reason);
-    }
-    reasonParts.push(...assignment.breaches, ...assignment.warnings);
+    reasonParts.push(...assignment.warnings);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${assignment.postalCode}</td>
       <td>${assignment.facility.name}</td>
-      <td>${assignment.bestFacility.name}</td>
-      <td>${formatOne.format(assignment.extraMinutes)} min</td>
-      <td>${formatOne.format(assignment.extraDistanceKm)} km</td>
-      <td>${formatMoneyOne.format(assignment.extraCostPerVisit)}</td>
-      <td>${reasonParts.join(", ") || "review"}</td>
+      <td>${formatOne.format(assignment.durationMin)} min</td>
+      <td>${formatOne.format(assignment.distanceKm)} km</td>
+      <td>${formatMoneyOne.format(assignment.routeCost)}</td>
+      <td>${reasonParts.join(", ") || "route note"}</td>
     `;
     tbody.append(tr);
   }
@@ -296,14 +214,11 @@ function renderExceptionTable(result) {
 
 function recalculatePlans({ renderMapNow = true } = {}) {
   const controls = readControls();
-  state.baselinePlan = buildPlan(state.data, controls, "lowest_cost");
-  state.optimizedPlan = buildPlan(state.data, controls, "optimized");
-  state.currentPlan = state.showOptimized ? state.optimizedPlan : state.baselinePlan;
+  state.currentPlan = buildPlan(state.data, controls);
   renderKpis(state.currentPlan);
   renderVerdict(state.currentPlan);
-  renderComparison();
   renderFacilityTable(state.currentPlan);
-  renderExceptionTable(state.currentPlan);
+  renderRouteNotesTable(state.currentPlan);
   if (renderMapNow) {
     requestAnimationFrame(() => renderMap(state.currentPlan));
   }
@@ -332,16 +247,6 @@ function stepControl(controlId, direction) {
   scheduleRecalculatePlans();
 }
 
-function showOptimizedPlan() {
-  state.showOptimized = true;
-  recalculatePlans({ renderMapNow: true });
-}
-
-function showBaselinePlan() {
-  state.showOptimized = false;
-  recalculatePlans({ renderMapNow: true });
-}
-
 async function loadJson(path) {
   const response = await fetch(path);
   if (!response.ok) {
@@ -358,10 +263,6 @@ function initializeControls(defaults) {
     maintenanceCostPerKm: defaults.maintenanceCostPerKm,
     visitsPerPostalCode: defaults.visitsPerPostalCode,
     visitDurationMin: defaults.visitDurationMin,
-    capacityHoursPerFacility: defaults.capacityHoursPerFacility,
-    maxExtraTravelMin: defaults.maxExtraTravelMin,
-    maxExtraDistanceKm: defaults.maxExtraDistanceKm,
-    maxRelativeCostPenalty: defaults.maxRelativeCostPenalty,
   })) {
     const input = document.getElementById(id);
     if (input) {
@@ -377,7 +278,6 @@ async function init() {
   state.activeFacilityIds = new Set(state.data.facilities.map((facility) => facility.id));
   state.layers.postalCodes = L.layerGroup().addTo(map);
   state.layers.facilities = L.layerGroup().addTo(map);
-  renderFacilityControls();
   for (const input of document.querySelectorAll("input[type='range']")) {
     input.addEventListener("input", scheduleRecalculatePlans);
   }
@@ -389,8 +289,6 @@ async function init() {
       stepControl(button.dataset.control, Number(button.dataset.step));
     });
   }
-  document.getElementById("optimizeButton").addEventListener("click", showOptimizedPlan);
-  document.getElementById("baselineButton").addEventListener("click", showBaselinePlan);
   recalculatePlans();
   document.body.classList.add("ready");
 }

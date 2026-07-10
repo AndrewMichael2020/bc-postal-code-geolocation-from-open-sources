@@ -27,11 +27,13 @@ def test_osrm_demo_asset_shape() -> None:
         "maintenanceCostPerKm",
         "visitsPerPostalCode",
         "visitDurationMin",
+    }
+    assert not {
         "capacityHoursPerFacility",
         "maxExtraTravelMin",
         "maxExtraDistanceKm",
         "maxRelativeCostPenalty",
-    }
+    } & set(asset["defaults"])
 
 
 def test_osrm_demo_asset_references_are_valid() -> None:

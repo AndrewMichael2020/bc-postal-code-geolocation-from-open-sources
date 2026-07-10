@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fraser Health Home Health Territory Planner</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710b" />
   </head>
   <body>
     <main class="app-shell">
@@ -15,7 +15,8 @@
           <h1>Fraser Health Home Health Territory Planner</h1>
           <p>
             Plan longitudinal home health service areas using OSRM road travel time,
-            route distance, provider time cost, vehicle cost, capacity, and route-risk warnings.
+            route distance, provider time cost, vehicle cost, and route considerations.
+            Facility circle size shows modeled weekly service hours.
           </p>
         </header>
       </section>
@@ -23,27 +24,23 @@
       <aside class="panel" aria-label="Scenario controls and territory results">
         <section class="section">
           <div class="control-row">
-            <h2>Scenario Verdict</h2>
-            <strong id="planMode">Lowest-cost baseline</strong>
+            <h2>Planning View</h2>
+            <strong id="planMode">Travel-efficient plan</strong>
           </div>
           <p id="networkMode" class="mode-note">-</p>
           <strong id="verdictLabel" class="verdict">Loading</strong>
           <p id="scenarioNarrative" class="narrative">Loading OSRM territory model...</p>
-          <div class="action-row">
-            <button id="optimizeButton" class="primary-action" type="button">Optimize territories</button>
-            <button id="baselineButton" class="secondary-action" type="button">Show lowest-cost plan</button>
-          </div>
         </section>
 
         <section class="section">
           <h2>Executive Snapshot</h2>
           <div class="kpi-grid">
             <div class="kpi">
-              <span>Assigned postal codes</span>
+              <span>Areas mapped</span>
               <strong id="postalCount">-</strong>
             </div>
             <div class="kpi">
-              <span>Weekly operating cost</span>
+              <span>Estimated weekly travel cost</span>
               <strong id="weeklyCost">-</strong>
             </div>
             <div class="kpi">
@@ -59,12 +56,12 @@
               <strong id="p95TravelTime">-</strong>
             </div>
             <div class="kpi">
-              <span>Capacity shortfall</span>
-              <strong id="capacityShortfall">-</strong>
+              <span>Modeled service hours</span>
+              <strong id="totalServiceHours">-</strong>
             </div>
             <div class="kpi">
-              <span>Review rows</span>
-              <strong id="exceptionCount">-</strong>
+              <span>Areas with route notes</span>
+              <strong id="routeNoteCount">-</strong>
             </div>
             <div class="kpi">
               <span>Vehicle cost rate</span>
@@ -74,51 +71,29 @@
         </section>
 
         <section class="section">
-          <h2>Before / After</h2>
-          <div class="comparison-grid">
+          <h2>Workload Distribution</h2>
+          <div class="comparison-grid workload-summary">
             <div>
-              <span>Baseline weekly cost</span>
-              <strong id="baselineCost">-</strong>
+              <span>Coverage mapped</span>
+              <strong id="coverageRate">-</strong>
             </div>
             <div>
-              <span>Optimized weekly cost</span>
-              <strong id="optimizedCost">-</strong>
+              <span>Busiest base</span>
+              <strong id="busiestBaseHours">-</strong>
             </div>
             <div>
-              <span>Baseline P95 time</span>
-              <strong id="baselineP95">-</strong>
-            </div>
-            <div>
-              <span>Optimized P95 time</span>
-              <strong id="optimizedP95">-</strong>
-            </div>
-            <div>
-              <span>Baseline shortfall</span>
-              <strong id="baselineShortfall">-</strong>
-            </div>
-            <div>
-              <span>Optimized shortfall</span>
-              <strong id="optimizedShortfall">-</strong>
+              <span>Average per base</span>
+              <strong id="averageBaseHours">-</strong>
             </div>
           </div>
-          <div class="delta-grid">
-            <div class="delta-card">
-              <span>Cost delta</span>
-              <strong id="costDelta">Run optimization</strong>
-            </div>
-            <div class="delta-card">
-              <span>Travel-hour delta</span>
-              <strong id="hoursDelta">-</strong>
-            </div>
-            <div class="delta-card">
-              <span>Shortfall delta</span>
-              <strong id="shortfallDelta">-</strong>
-            </div>
-          </div>
+          <p class="note compact">
+            The map scale adjusts automatically to the busiest active base. These hours describe
+            modeled work and do not represent staffing limits.
+          </p>
         </section>
 
         <section class="section">
-          <h2>Cost And Capacity Assumptions</h2>
+          <h2>Cost And Visit Assumptions</h2>
           <div class="control">
             <label for="laborCostPerHour">Provider travel cost / hour <output id="laborCostPerHourValue">$60</output></label>
             <div class="range-row">
@@ -167,59 +142,22 @@
               <button class="stepper" type="button" data-control="visitDurationMin" data-step="1" aria-label="Increase visit duration">+</button>
             </div>
           </div>
-          <div class="control">
-            <label for="capacityHoursPerFacility">Weekly capacity per facility <output id="capacityHoursValue">110 h</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="capacityHoursPerFacility" data-step="-1" aria-label="Decrease weekly capacity per facility">−</button>
-              <input id="capacityHoursPerFacility" type="range" min="20" max="180" value="110" step="5" />
-              <button class="stepper" type="button" data-control="capacityHoursPerFacility" data-step="1" aria-label="Increase weekly capacity per facility">+</button>
-            </div>
-          </div>
         </section>
 
         <section class="section">
-          <h2>Guardrails</h2>
-          <div class="control">
-            <label for="maxExtraTravelMin">Max extra travel time <output id="maxExtraTravelValue">10 min</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="maxExtraTravelMin" data-step="-1" aria-label="Decrease max extra travel time">−</button>
-              <input id="maxExtraTravelMin" type="range" min="0" max="45" value="10" step="1" />
-              <button class="stepper" type="button" data-control="maxExtraTravelMin" data-step="1" aria-label="Increase max extra travel time">+</button>
-            </div>
-          </div>
-          <div class="control">
-            <label for="maxExtraDistanceKm">Max extra road distance <output id="maxExtraDistanceValue">10 km</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="maxExtraDistanceKm" data-step="-1" aria-label="Decrease max extra road distance">−</button>
-              <input id="maxExtraDistanceKm" type="range" min="0" max="50" value="10" step="1" />
-              <button class="stepper" type="button" data-control="maxExtraDistanceKm" data-step="1" aria-label="Increase max extra road distance">+</button>
-            </div>
-          </div>
-          <div class="control">
-            <label for="maxRelativeCostPenalty">Max extra visit cost <output id="maxRelativeCostValue">25%</output></label>
-            <div class="range-row">
-              <button class="stepper" type="button" data-control="maxRelativeCostPenalty" data-step="-1" aria-label="Decrease max extra visit cost">−</button>
-              <input id="maxRelativeCostPenalty" type="range" min="0" max="1" value="0.25" step="0.05" />
-              <button class="stepper" type="button" data-control="maxRelativeCostPenalty" data-step="1" aria-label="Increase max extra visit cost">+</button>
-            </div>
-          </div>
+          <h2>Route Considerations</h2>
           <label class="toggle-row">
             <input id="includeQaPenalties" class="scenario-toggle" type="checkbox" />
-            <span>Include route-warning cost penalties</span>
-          </label>
-          <label class="toggle-row">
-            <input id="allowGuardrailExceptions" class="scenario-toggle" type="checkbox" />
-            <span>Allow guardrail exceptions for review</span>
+            <span>Include route considerations in facility ranking</span>
           </label>
         </section>
 
         <section class="section">
           <h2>Facilities</h2>
           <p class="note compact">
-            Checked facilities are eligible team bases. Optimization may rebalance only within
-            the OSRM candidate routes and the active guardrails.
+            All facilities are eligible provider-base placeholders. Every postal code remains mapped;
+            future home care station locations can replace these bases without changing the planning logic.
           </p>
-          <div id="facilityControls" class="hub-list"></div>
         </section>
 
         <section class="section">
@@ -232,11 +170,12 @@
               <thead>
                 <tr>
                   <th>Facility</th>
-                  <th>Codes</th>
+                  <th>Areas</th>
                   <th>Visits</th>
-                  <th>Util.</th>
+                  <th>Service h</th>
+                  <th>Work share</th>
                   <th>P95 time</th>
-                  <th>Weekly cost</th>
+                  <th>Travel cost</th>
                 </tr>
               </thead>
               <tbody id="allocationBody"></tbody>
@@ -245,21 +184,20 @@
         </section>
 
         <section class="section">
-          <h2>Exceptions And Route Warnings</h2>
-          <div class="table-wrap exceptions-table">
+          <h2>Route Considerations</h2>
+          <div class="table-wrap route-notes-table">
             <table>
               <thead>
                 <tr>
                   <th>Postal code</th>
-                  <th>Assigned</th>
-                  <th>Lowest cost</th>
-                  <th>Extra time</th>
-                  <th>Extra km</th>
-                  <th>Extra cost</th>
-                  <th>Reason</th>
+                  <th>Provider base</th>
+                  <th>Travel time</th>
+                  <th>Road distance</th>
+                  <th>Cost / visit</th>
+                  <th>Consideration</th>
                 </tr>
               </thead>
-              <tbody id="exceptionBody"></tbody>
+              <tbody id="routeNotesBody"></tbody>
             </table>
           </div>
         </section>
@@ -268,7 +206,8 @@
           <p class="note">
             Planning model only: travel time and distance come from the OSRM Fraser Health
             postal-code-to-facility dataset. Demand is modeled as recurring longitudinal
-            home health visit volume, not clinical urgency.
+            home health visit volume, not clinical urgency. Travel costs use one OSRM leg per
+            modeled visit and are comparative estimates rather than complete operating budgets.
           </p>
         </section>
       </aside>
@@ -278,6 +217,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710"></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710b"></script>
   </body>
 </html>
