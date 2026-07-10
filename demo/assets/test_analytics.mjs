@@ -47,6 +47,8 @@ assert.equal(routeCostPerVisit(data.postalCodes[0].candidates[0], controls), 12)
 const plan = buildPlan(data, controls);
 assert.equal(plan.mode, "travel_efficient");
 assert.equal(plan.assignedPostalCodeCount, 3);
+assert.equal(plan.availableFacilityCount, 3);
+assert.equal(plan.activeFacilityCount, 1);
 assert.equal(plan.coverageRate, 1);
 assert.equal(plan.unassigned.length, 0);
 assert.equal(plan.routeNoteCount, 0);
@@ -54,6 +56,7 @@ assert.equal(plan.summaries.find((summary) => summary.facility.id === "A").posta
 assert.equal(plan.weeklyTravelHours, 0.5);
 assert.equal(plan.weeklyCareHours, 1.5);
 assert.equal(plan.totalProviderHours, 2);
+assert.equal(plan.averageProviderHours, 2);
 assert.equal(plan.weeklyTravelCost, 36);
 assert.equal(plan.weeklyDeliveryCost, 126);
 assert.equal(plan.workloadCeilingHours, 2);
@@ -79,6 +82,8 @@ const selectedPlan = buildPlanFromCompactSelections(data, controls, [
 ]);
 assert.equal(selectedPlan.assignedPostalCodeCount, 3);
 assert.equal(selectedPlan.summaries.find((summary) => summary.facility.id === "B").postalCodeCount, 1);
+assert.equal(selectedPlan.activeFacilityCount, 2);
+assert.equal(selectedPlan.availableFacilityCount, 3);
 assert.equal(selectedPlan.coverageRate, 1);
 
 console.log("OSRM analytics tests passed");

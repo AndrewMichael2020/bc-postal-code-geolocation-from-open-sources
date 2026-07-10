@@ -3,17 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fraser Health Home Health Territory Planner</title>
+    <title>Health Authority Home Health Territory Planner Prototype (no private or proprietary data)</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710e" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710g" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="map-stage" aria-label="Fraser Health home health territory map">
+      <section class="map-stage" aria-label="Health Authority home health territory map">
         <div id="map"></div>
         <header class="map-title">
-          <h1>Fraser Health Home Health Territory Planner</h1>
-          <p>
+          <h1>Health Authority Home Health Territory Planner</h1>
+          <p class="prototype-label">Prototype (no private or proprietary data)</p>
+          <p class="map-description">
             Plan longitudinal home health service areas using OSRM modeled drive time,
             provider time, vehicle cost, and route notes.
           </p>
@@ -54,7 +55,7 @@
           <div class="comparison-grid workload-summary">
             <div><span>Coverage mapped</span><strong id="coverageRate">-</strong></div>
             <div><span>Busiest base</span><strong id="busiestBaseHours">-</strong></div>
-            <div><span>Average per base</span><strong id="averageBaseHours">-</strong></div>
+            <div><span>Average participating base</span><strong id="averageBaseHours">-</strong></div>
           </div>
         </section>
 
@@ -208,6 +209,6 @@
       </aside>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710e"></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710g"></script>
   </body>
 </html>

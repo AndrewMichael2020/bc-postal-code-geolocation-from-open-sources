@@ -5,7 +5,7 @@ import {
   mergeControls,
   siteAssumptions,
   vehicleCostPerKm,
-} from "./analytics.js?v=osrm-home-health-20260710e";
+} from "./analytics.js?v=osrm-home-health-20260710g";
 
 const state = {
   data: null,
@@ -31,6 +31,7 @@ const state = {
 
 const formatNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 0 });
 const formatOne = new Intl.NumberFormat("en-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const formatTwo = new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatMoney = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -176,7 +177,7 @@ function postalCardHtml(group, selectedIndex = 0) {
       <div><dt>In-home care</dt><dd>${formatNumber.format(assignment.visitDurationMin)} min</dd></div>
       <div><dt>Provider time / visit</dt><dd>${formatOne.format((assignment.durationMin + assignment.visitDurationMin) / 60)} h</dd></div>
       <div><dt>Delivery cost / visit</dt><dd>${formatMoneyOne.format(assignment.deliveryCostPerVisit)}</dd></div>
-      <div><dt>Weekly visits</dt><dd>${formatOne.format(assignment.visits)}</dd></div>
+      <div><dt>Weekly visits</dt><dd>${formatTwo.format(assignment.visits)}</dd></div>
     </dl>
     <p><span>Route notes</span>${escapeHtml(warningText)}</p>
   </article>`;
@@ -235,6 +236,7 @@ function handleMapClick(event) {
 }
 
 function renderMap(result) {
+  map.closePopup();
   state.layers.postalCodes.clearLayers();
   state.layers.routeHighlights.clearLayers();
   state.layers.facilities.clearLayers();
@@ -315,13 +317,13 @@ function renderKpis(result) {
   setText("planMode", state.targetMixApplied ? "Target workload scenario" : "Travel-efficient plan");
   setText(
     "networkMode",
-    `${formatNumber.format(result.activeFacilityCount)} facilities | ${formatNumber.format(result.totalVisits)} modeled weekly visits`
+    `${formatNumber.format(result.activeFacilityCount)} ${result.activeFacilityCount === 1 ? "provider base" : "provider bases"} in plan | ${formatNumber.format(result.totalVisits)} modeled weekly visits`
   );
   setText("verdictLabel", "Coverage mapped");
   setClassName("verdictLabel", "verdict good");
   setText(
     "scenarioNarrative",
-    `${formatNumber.format(result.assignedPostalCodeCount)} postal codes are mapped across ${formatNumber.format(result.activeFacilityCount)} provider bases. Provider time separates one-way travel from ${formatNumber.format(state.controls.visitDurationMin)}-minute in-home care.`
+    `${formatNumber.format(result.assignedPostalCodeCount)} postal codes are mapped across ${formatNumber.format(result.activeFacilityCount)} ${result.activeFacilityCount === 1 ? "provider base" : "provider bases"}. Provider time separates one-way travel from ${formatNumber.format(state.controls.visitDurationMin)}-minute in-home care.`
   );
 }
 
@@ -444,7 +446,7 @@ function renderAll(result, { renderMapNow = true } = {}) {
 
 function workerInstance() {
   if (!state.worker) {
-    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710e");
+    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710g");
     state.worker.addEventListener("message", (event) => {
       const pending = state.workerPending.get(event.data.requestId);
       if (!pending) return;

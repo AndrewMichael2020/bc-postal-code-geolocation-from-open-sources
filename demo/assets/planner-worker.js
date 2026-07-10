@@ -99,6 +99,60 @@ function applyTargetShares(asset, controls, selections, shares) {
   return { selections, counts, targets, movedCount };
 }
 
+function candidateForFacility(candidates, facilityIndex) {
+  return candidates.find((candidate) => candidate[0] === facilityIndex);
+}
+
+function improveWithPairSwaps(asset, controls, selections, maxPasses = 4) {
+  const assigned = Array.from({ length: asset.facilityIds.length }, () => new Set());
+  for (let postalIndex = 0; postalIndex < selections.length; postalIndex += 1) {
+    assigned[selections[postalIndex][0]].add(postalIndex);
+  }
+
+  let swapCount = 0;
+  let swapSavings = 0;
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    let passSwaps = 0;
+    for (let facilityA = 0; facilityA < assigned.length; facilityA += 1) {
+      if (!assigned[facilityA].size) continue;
+      for (let facilityB = facilityA + 1; facilityB < assigned.length; facilityB += 1) {
+        if (!assigned[facilityB].size) continue;
+        let bestA = null;
+        let bestB = null;
+        for (const postalIndex of assigned[facilityA]) {
+          const candidate = candidateForFacility(asset.candidates[postalIndex], facilityB);
+          if (!candidate) continue;
+          const delta =
+            candidateCost(candidate, asset.facilityIds[facilityB], controls) -
+            candidateCost(selections[postalIndex], asset.facilityIds[facilityA], controls);
+          if (!bestA || delta < bestA.delta) bestA = { postalIndex, candidate, delta };
+        }
+        for (const postalIndex of assigned[facilityB]) {
+          const candidate = candidateForFacility(asset.candidates[postalIndex], facilityA);
+          if (!candidate) continue;
+          const delta =
+            candidateCost(candidate, asset.facilityIds[facilityA], controls) -
+            candidateCost(selections[postalIndex], asset.facilityIds[facilityB], controls);
+          if (!bestB || delta < bestB.delta) bestB = { postalIndex, candidate, delta };
+        }
+        if (!bestA || !bestB || bestA.delta + bestB.delta >= -1e-9) continue;
+
+        selections[bestA.postalIndex] = bestA.candidate;
+        selections[bestB.postalIndex] = bestB.candidate;
+        assigned[facilityA].delete(bestA.postalIndex);
+        assigned[facilityB].delete(bestB.postalIndex);
+        assigned[facilityA].add(bestB.postalIndex);
+        assigned[facilityB].add(bestA.postalIndex);
+        swapSavings -= bestA.delta + bestB.delta;
+        swapCount += 1;
+        passSwaps += 1;
+      }
+    }
+    if (!passSwaps) break;
+  }
+  return { selections, swapCount, swapSavings };
+}
+
 self.addEventListener("message", async (event) => {
   if (event.data?.type !== "plan") return;
   const { requestId, controls, targetShares } = event.data;
@@ -107,10 +161,13 @@ self.addEventListener("message", async (event) => {
     const asset = await loadAdvancedAsset();
     self.postMessage({ type: "status", requestId, status: "planning" });
     let selections = chooseLowestCost(asset, controls);
-    let details = { movedCount: 0, counts: null, targets: null };
+    let details = { movedCount: 0, counts: null, targets: null, swapCount: 0, swapSavings: 0 };
     if (targetShares) {
       details = applyTargetShares(asset, controls, [...selections], targetShares);
-      selections = details.selections;
+      const improved = improveWithPairSwaps(asset, controls, details.selections);
+      selections = improved.selections;
+      details.swapCount = improved.swapCount;
+      details.swapSavings = improved.swapSavings;
     }
     self.postMessage({
       type: "result",
@@ -119,6 +176,8 @@ self.addEventListener("message", async (event) => {
       movedCount: details.movedCount,
       counts: details.counts,
       targets: details.targets,
+      swapCount: details.swapCount,
+      swapSavings: details.swapSavings,
     });
   } catch (error) {
     self.postMessage({ type: "error", requestId, message: error.message || String(error) });

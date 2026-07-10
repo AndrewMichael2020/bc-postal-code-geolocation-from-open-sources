@@ -57,7 +57,7 @@ Leadership may assign each provider base a target share of all modeled visits.
 - `0%` means the base receives no modeled home-care visits.
 - `100%` means the base is the sole provider base and receives every mapped visit.
 - Intermediate edits proportionally normalize all other shares so the total remains 100%.
-- The planner assigns exact postal-code counts by largest-remainder rounding, then chooses the lowest incremental-cost moves needed to meet those counts.
+- The planner assigns exact postal-code counts by largest-remainder rounding, uses a travel-cost-aware greedy allocation, and then applies bounded count-preserving pair swaps to remove obvious local cost inefficiencies. This is a responsive scenario heuristic, not a claim of globally optimal territory scheduling.
 - Coverage must remain 100%.
 
 A target scenario is a policy/workload preview, not an optimization claim. Always compare its travel cost, travel hours, and reassigned areas with the travel-efficient baseline. Disabling target shares or selecting **Return to travel-efficient plan** restores the baseline immediately.
@@ -110,7 +110,7 @@ Per-base labour and vehicle values affect route choice and cost. Per-base in-hom
 
 ## 7. Workload Analytics
 
-For every active base, report assigned areas, weekly visits, provider hours, visit/work share, P95 one-way time, and estimated delivery cost. Hours are analytics only, not a capacity ceiling.
+For every participating base, report assigned areas, weekly visits, provider hours, visit/work share, P95 one-way time, and estimated delivery cost. Counts and averages include only bases with assigned visits; available zero-share bases remain selectable but are not described as participating. Hours are analytics only, not a capacity ceiling.
 
 Facility marker size uses:
 

@@ -213,13 +213,15 @@ export function summarizeAssignments(assignments, data, controls, mode) {
   }
 
   const summaries = [...summaryByFacility.values()].sort((a, b) => b.providerHours - a.providerHours);
+  const assignedSummaries = summaries.filter((summary) => summary.postalCodeCount > 0);
   const routeNotes = assignments
     .filter((assignment) => assignment.hasRouteNotes)
     .sort((a, b) => b.durationMin - a.durationMin || b.distanceKm - a.distanceKm);
   const travelRows = assignments.filter((assignment) => assignment.visits > 0);
   return {
     mode,
-    activeFacilityCount: activeIds.size,
+    availableFacilityCount: activeIds.size,
+    activeFacilityCount: assignedSummaries.length,
     assignedPostalCodeCount: assignments.length,
     totalVisits,
     weeklyTravelHours: assignments.reduce((sum, item) => sum + item.travelHours, 0),
@@ -229,7 +231,7 @@ export function summarizeAssignments(assignments, data, controls, mode) {
     weeklyTravelCost: assignments.reduce((sum, item) => sum + item.weeklyTravelCost, 0),
     weeklyDeliveryCost: assignments.reduce((sum, item) => sum + item.weeklyDeliveryCost, 0),
     weeklyVehicleCost: assignments.reduce((sum, item) => sum + item.weeklyVehicleCost, 0),
-    averageProviderHours: summaries.length ? totalProviderHours / summaries.length : 0,
+    averageProviderHours: assignedSummaries.length ? totalProviderHours / assignedSummaries.length : 0,
     workloadCeilingHours,
     medianDurationMin: weightedPercentile(travelRows, "durationMin", "visits", 50),
     p95DurationMin: weightedPercentile(travelRows, "durationMin", "visits", 95),

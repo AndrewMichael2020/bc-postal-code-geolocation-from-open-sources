@@ -12,7 +12,7 @@
 <p>
   <strong>
     <a href="https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/" style="color: #d00000;">
-      Live Demo: Fraser Health Home Health Territory Planner
+      Live Demo: Health Authority Home Health Territory Planner Prototype (no private or proprietary data)
     </a>
   </strong>
 </p>
@@ -64,7 +64,7 @@ The committed dataset is the free/open reconstruction. It has not been cleaned o
 
 The repository includes a static GitHub Pages demo for Fraser Health home health territory planning:
 
-[Fraser Health Home Health Territory Planner](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
+[Health Authority Home Health Territory Planner Prototype (no private or proprietary data)](https://andrewmichael2020.github.io/bc-postal-code-geolocation-from-open-sources/)
 
 The demo is a management scenario workspace for longitudinal home health visits. It uses OSRM modeled drive time and road distance from the Fraser Health postal-code-to-facility dataset, then converts one travel leg per modeled visit into a comparative travel-cost estimate using provider time, gas, fuel consumption, and vehicle maintenance assumptions. These OSRM durations use the static OpenStreetMap driving profile; the dataset contains no live or historical traffic feed.
 
