@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fraser Health Home Health Territory Planner</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710d" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710e" />
   </head>
   <body>
     <main class="app-shell">
@@ -14,7 +14,7 @@
         <header class="map-title">
           <h1>Fraser Health Home Health Territory Planner</h1>
           <p>
-            Plan longitudinal home health service areas using OSRM road travel time,
+            Plan longitudinal home health service areas using OSRM modeled drive time,
             provider time, vehicle cost, and route notes.
           </p>
         </header>
@@ -31,7 +31,7 @@
           <p id="scenarioNarrative" class="narrative">Loading OSRM territory model...</p>
           <p id="planningStatus" class="planning-status" role="status"></p>
           <button id="returnTravelPlanButton" class="secondary-action full-width-action" type="button" hidden>
-            Return to travel-efficient plan
+            Return to default plan
           </button>
         </section>
 
@@ -44,7 +44,7 @@
             <div class="kpi"><span>Provider travel hours</span><strong id="weeklyTravelHours">-</strong></div>
             <div class="kpi"><span>In-home care hours</span><strong id="weeklyCareHours">-</strong></div>
             <div class="kpi"><span>Total provider hours</span><strong id="totalProviderHours">-</strong></div>
-            <div class="kpi"><span>P95 one-way travel time</span><strong id="p95TravelTime">-</strong></div>
+            <div class="kpi"><span>P95 modeled drive time</span><strong id="p95TravelTime">-</strong></div>
             <div class="kpi"><span>Areas with route notes</span><strong id="routeNoteCount">-</strong></div>
           </div>
         </section>
@@ -125,7 +125,7 @@
             <strong id="routeFilterCount">-</strong>
           </div>
           <div class="filter-row">
-            <label class="toggle-row"><input id="highlightRouteNotes" type="checkbox" checked /><span>Highlight on map</span></label>
+            <label class="toggle-row"><input id="highlightRouteNotes" type="checkbox" /><span>Focus matching areas on map</span></label>
             <label class="select-control" for="routeNoteFilter"><span>Note type</span>
               <select id="routeNoteFilter">
                 <option value="all">All route notes</option>
@@ -193,7 +193,7 @@
           <h2>Route Notes</h2>
           <div class="table-wrap route-notes-table">
             <table>
-              <thead><tr><th>Postal code</th><th>Provider base</th><th>Travel time</th><th>Road distance</th><th>Cost / visit</th><th>Route note</th></tr></thead>
+              <thead><tr><th>Postal code</th><th>Provider base</th><th>Modeled drive time</th><th>Road distance</th><th>Cost / visit</th><th>Route note</th></tr></thead>
               <tbody id="routeNotesBody"></tbody>
             </table>
           </div>
@@ -201,13 +201,13 @@
 
         <section class="section">
           <p class="note">
-            Planning model only. Travel time and road distance come from the OSRM Fraser Health dataset.
+            Planning model only. Modeled drive time and road distance come from the OSRM Fraser Health dataset; no live or historical traffic feed is included.
             The 30-minute default represents care delivered inside the patient home. Costs use one OSRM travel leg per modeled visit.
           </p>
         </section>
       </aside>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710d"></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710e"></script>
   </body>
 </html>

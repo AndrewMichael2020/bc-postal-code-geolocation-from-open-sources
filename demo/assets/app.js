@@ -5,7 +5,7 @@ import {
   mergeControls,
   siteAssumptions,
   vehicleCostPerKm,
-} from "./analytics.js?v=osrm-home-health-20260710d";
+} from "./analytics.js?v=osrm-home-health-20260710e";
 
 const state = {
   data: null,
@@ -21,8 +21,8 @@ const state = {
   controls: {},
   assignmentGroups: [],
   routeFilter: "all",
-  highlightRouteNotes: true,
-  layers: { postalCodes: null, facilities: null, selection: null },
+  highlightRouteNotes: false,
+  layers: { postalCodes: null, routeHighlights: null, facilities: null, selection: null },
   recalculateTimer: null,
   worker: null,
   workerRequestId: 0,
@@ -60,6 +60,12 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 const postalRenderer = L.canvas({ padding: 0.5 });
+map.createPane("routeHighlightPane").style.zIndex = "410";
+map.createPane("facilityPane").style.zIndex = "430";
+map.createPane("selectionPane").style.zIndex = "450";
+const routeHighlightRenderer = L.canvas({ pane: "routeHighlightPane", padding: 0.5 });
+const facilityRenderer = L.canvas({ pane: "facilityPane", padding: 0.5 });
+const selectionRenderer = L.canvas({ pane: "selectionPane", padding: 0.5 });
 
 function setText(id, value) {
   const element = document.getElementById(id);
@@ -164,7 +170,7 @@ function postalCardHtml(group, selectedIndex = 0) {
     ${selector}
     <dl>
       <div><dt>Provider base</dt><dd>${escapeHtml(assignment.facility.name)}</dd></div>
-      <div><dt>One-way travel</dt><dd>${formatOne.format(assignment.durationMin)} min</dd></div>
+      <div><dt>Modeled drive time</dt><dd>${formatOne.format(assignment.durationMin)} min</dd></div>
       <div><dt>Road distance</dt><dd>${formatOne.format(assignment.distanceKm)} km</dd></div>
       <div><dt>Travel cost / visit</dt><dd>${formatMoneyOne.format(assignment.routeCost)}</dd></div>
       <div><dt>In-home care</dt><dd>${formatNumber.format(assignment.visitDurationMin)} min</dd></div>
@@ -179,6 +185,7 @@ function postalCardHtml(group, selectedIndex = 0) {
 function openPostalCard(group, selectedIndex = 0) {
   state.layers.selection.clearLayers();
   L.circleMarker([group.latitude, group.longitude], {
+    renderer: selectionRenderer,
     radius: 7,
     color: "#111827",
     weight: 2,
@@ -229,26 +236,52 @@ function handleMapClick(event) {
 
 function renderMap(result) {
   state.layers.postalCodes.clearLayers();
+  state.layers.routeHighlights.clearLayers();
   state.layers.facilities.clearLayers();
   state.layers.selection.clearLayers();
   rebuildAssignmentGroups(result);
 
+  const highlightedAssignments = [];
   for (const assignment of result.assignments) {
-    const highlighted = state.highlightRouteNotes && routeNoteMatches(assignment);
+    const matchesRouteFilter = routeNoteMatches(assignment);
+    const focused = state.highlightRouteNotes && matchesRouteFilter;
+    if (focused) highlightedAssignments.push(assignment);
     L.circleMarker([assignment.latitude, assignment.longitude], {
       renderer: postalRenderer,
       radius: 2.8,
-      color: highlighted ? "#92400e" : "#111827",
-      weight: highlighted ? 1.4 : 0.45,
+      color: focused ? "#111827" : state.highlightRouteNotes ? "#64748b" : "#111827",
+      weight: focused ? 0.9 : state.highlightRouteNotes ? 0.2 : 0.45,
       fillColor: assignment.facility.color,
-      fillOpacity: 0.58,
+      fillOpacity: focused ? 0.96 : state.highlightRouteNotes ? 0.08 : 0.58,
       interactive: false,
     }).addTo(state.layers.postalCodes);
+  }
+
+  for (const assignment of highlightedAssignments) {
+    L.circleMarker([assignment.latitude, assignment.longitude], {
+      renderer: routeHighlightRenderer,
+      radius: 7,
+      color: "#fde047",
+      opacity: 0.95,
+      weight: 4,
+      fill: false,
+      interactive: false,
+    }).addTo(state.layers.routeHighlights);
+    L.circleMarker([assignment.latitude, assignment.longitude], {
+      renderer: routeHighlightRenderer,
+      radius: 4.7,
+      color: "#ffffff",
+      opacity: 1,
+      weight: 1.5,
+      fill: false,
+      interactive: false,
+    }).addTo(state.layers.routeHighlights);
   }
 
   for (const summary of result.summaries.filter((item) => item.postalCodeCount > 0)) {
     const { facility } = summary;
     const marker = L.circleMarker([facility.latitude, facility.longitude], {
+      renderer: facilityRenderer,
       radius: 8 + 12 * Math.sqrt(summary.workloadIndex),
       color: "#ffffff",
       weight: 2.5,
@@ -411,7 +444,7 @@ function renderAll(result, { renderMapNow = true } = {}) {
 
 function workerInstance() {
   if (!state.worker) {
-    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710d");
+    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710e");
     state.worker.addEventListener("message", (event) => {
       const pending = state.workerPending.get(event.data.requestId);
       if (!pending) return;
@@ -563,6 +596,7 @@ async function init() {
   state.activeFacilityIds = new Set(state.data.facilities.map((facility) => facility.id));
   state.selectedFacilityId = state.data.facilities[0].id;
   state.layers.postalCodes = L.layerGroup().addTo(map);
+  state.layers.routeHighlights = L.layerGroup().addTo(map);
   state.layers.facilities = L.layerGroup().addTo(map);
   state.layers.selection = L.layerGroup().addTo(map);
   map.on("click", handleMapClick);

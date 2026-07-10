@@ -23,7 +23,7 @@ The browser uses:
 - `demo/data/fha-home-health-demo.json`: compact initial asset with eight candidates per postal code.
 - `demo/data/fha-home-health-advanced-candidates.json`: lazy asset with all 27 candidates per postal code.
 
-Assignment and displayed travel measures must use OSRM `duration_min` and `distance_km`. Haversine or other straight-line distance is prohibited in planning logic and travel KPIs.
+Assignment and displayed travel measures must use OSRM `duration_min` and `distance_km`. The durations are static routing-profile estimates, not live or historical traffic observations, and must be described as modeled drive time. Haversine or other straight-line distance is prohibited in planning logic and travel KPIs.
 
 ## 3. Service Model
 
@@ -133,7 +133,7 @@ The busiest active base has index `1.0`. A base with no assigned visits is omitt
 
 Supported notes include snap distance, long route, slow road, high circuity, forest/service road, wilderness access, terrain, and detailed-review signals.
 
-The route-note checkbox and type menu are visual review tools only. They highlight the map and filter the table; they must not modify route ranking, assignments, costs, or target shares.
+The route-note checkbox and type menu are visual review tools only. Focus mode fades nonmatching postal dots and draws a bright halo around matching dots while preserving the base dot radius. It must not modify route ranking, assignments, costs, or target shares.
 
 ## 10. Language
 
