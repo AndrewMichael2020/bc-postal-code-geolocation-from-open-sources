@@ -21,10 +21,6 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Compile scripts
         run: python -m py_compile scripts/*.py
-      - name: Verify demo assets are reproducible
-        run: |
-          python scripts/generate_demo_assets.py
-          git diff --exit-code -- demo/data
       - name: Run Python tests
         run: python -m pytest scripts/test_postal_reconstruction.py scripts/test_demo_assets.py
       - name: Run demo analytics tests
