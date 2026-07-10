@@ -68,7 +68,11 @@ The repository includes a static GitHub Pages demo for Fraser Health home health
 
 The demo is a management scenario workspace for longitudinal home health visits. It uses OSRM road travel time and distance from the Fraser Health postal-code-to-facility dataset, then converts one travel leg per modeled visit into a comparative travel-cost estimate using provider time, gas, fuel consumption, and vehicle maintenance assumptions.
 
-Every postal code is mapped to its lowest-cost available OSRM facility route. Facility capacity is not treated as a constraint: all provider-base placeholders can absorb the modeled work. The demo reports estimated weekly service hours and workload share by facility for analytics only, and facility marker size automatically scales to the busiest base in the current scenario.
+Every postal code is mapped to its lowest-cost available OSRM facility route. Facility capacity is not treated as a constraint: all provider-base placeholders can absorb the modeled work. The default in-home care duration is 30 minutes and is kept separate from travel time. The demo reports estimated weekly provider hours and workload share by facility for analytics only, and facility marker size automatically scales to the busiest base in the current scenario.
+
+Leadership can adjust labour cost, vehicle cost, and in-home visit duration globally or for one selected provider base. A target visit-share scenario can set any base from `0%` (no modeled home-care visits) through `100%` (the sole provider base for all mapped visits). Other target shares are normalized so the system always totals 100%, and the demo compares the scenario with the travel-efficient plan rather than calling a more costly scenario optimized.
+
+Postal-code dots remain compact but open a detailed card through a larger invisible hit area. The card shows the selected provider base, OSRM time and road distance, travel and delivery cost, in-home duration, provider time, weekly visits, and route notes. Route-note controls only highlight and filter operational signals; they never silently alter allocation.
 
 The demo no longer uses straight-line distance, fictional hubs, or FSA centroid clusters. It loads a compact browser asset generated from the Git LFS dataset at `outputs/fha_golden_distances_times.csv`:
 
@@ -82,10 +86,11 @@ Current demo shape:
 | --- | ---: |
 | Fraser Health postal codes | 41,176 |
 | Healthcare facilities | 27 |
-| OSRM route candidates in browser asset | 329,408 |
+| OSRM route candidates in initial browser asset | 329,408 |
+| OSRM route candidates in lazy scenario asset | 1,111,752 |
 | Full source route pairs in LFS CSV | 1,111,752 |
 
-The browser asset keeps the top route candidates per postal code for fast interaction. It preserves route duration, road distance, facility identity, postal-code coordinates, and compact route-warning labels. The full rich table remains in Git LFS.
+The initial browser asset keeps the top route candidates per postal code for fast interaction. Target-share and per-site routing scenarios lazy-load `demo/data/fha-home-health-advanced-candidates.json` in a Web Worker, giving every postal code all 27 facilities without delaying the first view. Both assets preserve OSRM duration, road distance, facility identity, postal-code coordinates, and compact route-warning labels. The full rich table remains in Git LFS.
 
 Regenerate the demo asset after refreshing the OSRM LFS CSV:
 

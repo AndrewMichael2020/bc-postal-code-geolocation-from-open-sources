@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fraser Health Home Health Territory Planner</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710b" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710d" />
   </head>
   <body>
     <main class="app-shell">
@@ -15,8 +15,7 @@
           <h1>Fraser Health Home Health Territory Planner</h1>
           <p>
             Plan longitudinal home health service areas using OSRM road travel time,
-            route distance, provider time cost, vehicle cost, and route considerations.
-            Facility circle size shows modeled weekly service hours.
+            provider time, vehicle cost, and route notes.
           </p>
         </header>
       </section>
@@ -30,83 +29,59 @@
           <p id="networkMode" class="mode-note">-</p>
           <strong id="verdictLabel" class="verdict">Loading</strong>
           <p id="scenarioNarrative" class="narrative">Loading OSRM territory model...</p>
+          <p id="planningStatus" class="planning-status" role="status"></p>
+          <button id="returnTravelPlanButton" class="secondary-action full-width-action" type="button" hidden>
+            Return to travel-efficient plan
+          </button>
         </section>
 
         <section class="section">
           <h2>Executive Snapshot</h2>
           <div class="kpi-grid">
-            <div class="kpi">
-              <span>Areas mapped</span>
-              <strong id="postalCount">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Estimated weekly travel cost</span>
-              <strong id="weeklyCost">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Provider travel hours</span>
-              <strong id="weeklyTravelHours">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Vehicle cost</span>
-              <strong id="vehicleCost">-</strong>
-            </div>
-            <div class="kpi">
-              <span>P95 one-way travel time</span>
-              <strong id="p95TravelTime">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Modeled service hours</span>
-              <strong id="totalServiceHours">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Areas with route notes</span>
-              <strong id="routeNoteCount">-</strong>
-            </div>
-            <div class="kpi">
-              <span>Vehicle cost rate</span>
-              <strong id="vehicleCostValue">-</strong>
-            </div>
+            <div class="kpi"><span>Areas mapped</span><strong id="postalCount">-</strong></div>
+            <div class="kpi"><span>Estimated weekly delivery cost</span><strong id="weeklyDeliveryCost">-</strong></div>
+            <div class="kpi"><span>Estimated weekly travel cost</span><strong id="weeklyTravelCost">-</strong></div>
+            <div class="kpi"><span>Provider travel hours</span><strong id="weeklyTravelHours">-</strong></div>
+            <div class="kpi"><span>In-home care hours</span><strong id="weeklyCareHours">-</strong></div>
+            <div class="kpi"><span>Total provider hours</span><strong id="totalProviderHours">-</strong></div>
+            <div class="kpi"><span>P95 one-way travel time</span><strong id="p95TravelTime">-</strong></div>
+            <div class="kpi"><span>Areas with route notes</span><strong id="routeNoteCount">-</strong></div>
           </div>
         </section>
 
         <section class="section">
           <h2>Workload Distribution</h2>
           <div class="comparison-grid workload-summary">
-            <div>
-              <span>Coverage mapped</span>
-              <strong id="coverageRate">-</strong>
-            </div>
-            <div>
-              <span>Busiest base</span>
-              <strong id="busiestBaseHours">-</strong>
-            </div>
-            <div>
-              <span>Average per base</span>
-              <strong id="averageBaseHours">-</strong>
-            </div>
+            <div><span>Coverage mapped</span><strong id="coverageRate">-</strong></div>
+            <div><span>Busiest base</span><strong id="busiestBaseHours">-</strong></div>
+            <div><span>Average per base</span><strong id="averageBaseHours">-</strong></div>
           </div>
-          <p class="note compact">
-            The map scale adjusts automatically to the busiest active base. These hours describe
-            modeled work and do not represent staffing limits.
-          </p>
+        </section>
+
+        <section id="scenarioDelta" class="section" hidden>
+          <h2>Target Mix Comparison</h2>
+          <div class="comparison-grid workload-summary">
+            <div><span>Travel cost change</span><strong id="scenarioCostChange">-</strong></div>
+            <div><span>Travel-hour change</span><strong id="scenarioHoursChange">-</strong></div>
+            <div><span>Areas reassigned</span><strong id="scenarioAreasMoved">-</strong></div>
+          </div>
         </section>
 
         <section class="section">
           <h2>Cost And Visit Assumptions</h2>
           <div class="control">
-            <label for="laborCostPerHour">Provider travel cost / hour <output id="laborCostPerHourValue">$60</output></label>
+            <label for="laborCostPerHour">Provider labour cost / hour <output id="laborCostPerHourValue">$60</output></label>
             <div class="range-row">
-              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="-1" aria-label="Decrease provider travel cost per hour">−</button>
-              <input id="laborCostPerHour" type="range" min="35" max="110" value="60" step="5" />
-              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="1" aria-label="Increase provider travel cost per hour">+</button>
+              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="-1" aria-label="Decrease provider labour cost per hour">−</button>
+              <input id="laborCostPerHour" class="global-control" type="range" min="35" max="110" value="60" step="5" />
+              <button class="stepper" type="button" data-control="laborCostPerHour" data-step="1" aria-label="Increase provider labour cost per hour">+</button>
             </div>
           </div>
           <div class="control">
             <label for="gasPricePerLitre">Regular gas price / litre <output id="gasPricePerLitreValue">$1.70</output></label>
             <div class="range-row">
               <button class="stepper" type="button" data-control="gasPricePerLitre" data-step="-1" aria-label="Decrease gas price per litre">−</button>
-              <input id="gasPricePerLitre" type="range" min="1.2" max="2.4" value="1.7" step="0.05" />
+              <input id="gasPricePerLitre" class="global-control" type="range" min="1.2" max="2.4" value="1.7" step="0.05" />
               <button class="stepper" type="button" data-control="gasPricePerLitre" data-step="1" aria-label="Increase gas price per litre">+</button>
             </div>
           </div>
@@ -114,7 +89,7 @@
             <label for="fuelConsumptionLPer100Km">Truck fuel consumption <output id="fuelConsumptionValue">11.5 L/100 km</output></label>
             <div class="range-row">
               <button class="stepper" type="button" data-control="fuelConsumptionLPer100Km" data-step="-1" aria-label="Decrease fuel consumption">−</button>
-              <input id="fuelConsumptionLPer100Km" type="range" min="7" max="18" value="11.5" step="0.5" />
+              <input id="fuelConsumptionLPer100Km" class="global-control" type="range" min="7" max="18" value="11.5" step="0.5" />
               <button class="stepper" type="button" data-control="fuelConsumptionLPer100Km" data-step="1" aria-label="Increase fuel consumption">+</button>
             </div>
           </div>
@@ -122,7 +97,7 @@
             <label for="maintenanceCostPerKm">Maintenance / amortization per km <output id="maintenanceCostValue">$0.07</output></label>
             <div class="range-row">
               <button class="stepper" type="button" data-control="maintenanceCostPerKm" data-step="-1" aria-label="Decrease maintenance cost per kilometre">−</button>
-              <input id="maintenanceCostPerKm" type="range" min="0" max="0.25" value="0.07" step="0.01" />
+              <input id="maintenanceCostPerKm" class="global-control" type="range" min="0" max="0.25" value="0.07" step="0.01" />
               <button class="stepper" type="button" data-control="maintenanceCostPerKm" data-step="1" aria-label="Increase maintenance cost per kilometre">+</button>
             </div>
           </div>
@@ -130,73 +105,95 @@
             <label for="visitsPerPostalCode">Weekly visits per postal code <output id="visitsPerPostalCodeValue">0.05</output></label>
             <div class="range-row">
               <button class="stepper" type="button" data-control="visitsPerPostalCode" data-step="-1" aria-label="Decrease weekly visits per postal code">−</button>
-              <input id="visitsPerPostalCode" type="range" min="0.01" max="0.3" value="0.05" step="0.01" />
+              <input id="visitsPerPostalCode" class="global-control" type="range" min="0.01" max="0.3" value="0.05" step="0.01" />
               <button class="stepper" type="button" data-control="visitsPerPostalCode" data-step="1" aria-label="Increase weekly visits per postal code">+</button>
             </div>
           </div>
           <div class="control">
-            <label for="visitDurationMin">Visit duration <output id="visitDurationValue">45 min</output></label>
+            <label for="visitDurationMin">In-home visit duration <output id="visitDurationValue">30 min</output></label>
             <div class="range-row">
-              <button class="stepper" type="button" data-control="visitDurationMin" data-step="-1" aria-label="Decrease visit duration">−</button>
-              <input id="visitDurationMin" type="range" min="20" max="120" value="45" step="5" />
-              <button class="stepper" type="button" data-control="visitDurationMin" data-step="1" aria-label="Increase visit duration">+</button>
+              <button class="stepper" type="button" data-control="visitDurationMin" data-step="-1" aria-label="Decrease in-home visit duration">−</button>
+              <input id="visitDurationMin" class="global-control" type="range" min="15" max="120" value="30" step="5" />
+              <button class="stepper" type="button" data-control="visitDurationMin" data-step="1" aria-label="Increase in-home visit duration">+</button>
             </div>
           </div>
         </section>
 
         <section class="section">
-          <h2>Route Considerations</h2>
-          <label class="toggle-row">
-            <input id="includeQaPenalties" class="scenario-toggle" type="checkbox" />
-            <span>Include route considerations in facility ranking</span>
-          </label>
-        </section>
-
-        <section class="section">
-          <h2>Facilities</h2>
-          <p class="note compact">
-            All facilities are eligible provider-base placeholders. Every postal code remains mapped;
-            future home care station locations can replace these bases without changing the planning logic.
-          </p>
-        </section>
-
-        <section class="section">
           <div class="control-row">
-            <h2>Allocation By Facility</h2>
-            <strong id="datasetShape">-</strong>
+            <h2>Route Notes</h2>
+            <strong id="routeFilterCount">-</strong>
           </div>
+          <div class="filter-row">
+            <label class="toggle-row"><input id="highlightRouteNotes" type="checkbox" checked /><span>Highlight on map</span></label>
+            <label class="select-control" for="routeNoteFilter"><span>Note type</span>
+              <select id="routeNoteFilter">
+                <option value="all">All route notes</option>
+                <option value="snap">Snap distance</option>
+                <option value="long">Long route</option>
+                <option value="slow">Slow road</option>
+                <option value="circuity">High circuity</option>
+                <option value="forest">Forest / service road</option>
+                <option value="wilderness">Wilderness access</option>
+                <option value="terrain">Terrain</option>
+                <option value="detail">Detailed review</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section id="providerBaseSettings" class="section">
+          <div class="control-row">
+            <h2>Provider Base Settings</h2>
+            <strong id="siteOverrideStatus">Global values</strong>
+          </div>
+          <label class="select-control" for="facilitySelect"><span>Provider base</span><select id="facilitySelect"></select></label>
+          <div class="site-summary">
+            <div><span>Current visit share</span><strong id="siteCurrentShare">-</strong></div>
+            <div><span>Target total</span><strong id="targetShareTotal">100%</strong></div>
+          </div>
+          <div class="control">
+            <label for="siteLaborCostPerHour">Provider labour cost / hour <output id="siteLaborCostValue">-</output></label>
+            <input id="siteLaborCostPerHour" type="range" min="35" max="110" step="5" />
+            <span class="control-impact">Affects route choice and cost</span>
+          </div>
+          <div class="control">
+            <label for="siteVehicleCostPerKm">Vehicle cost / km <output id="siteVehicleCostValue">-</output></label>
+            <input id="siteVehicleCostPerKm" type="range" min="0.1" max="1" step="0.01" />
+            <span class="control-impact">Affects route choice and cost</span>
+          </div>
+          <div class="control">
+            <label for="siteVisitDurationMin">In-home visit duration <output id="siteVisitDurationValue">30 min</output></label>
+            <input id="siteVisitDurationMin" type="range" min="15" max="120" step="5" />
+            <span class="control-impact">Provider-hours analytics</span>
+          </div>
+          <button id="resetSiteButton" class="secondary-action full-width-action" type="button">Use global values for this base</button>
+
+          <div class="target-mix-controls">
+            <label class="toggle-row"><input id="enableTargetMix" type="checkbox" /><span>Set target visit shares</span></label>
+            <div class="control">
+              <label for="targetShare">Selected-base target share <output id="targetShareValue">0.0%</output></label>
+              <input id="targetShare" type="range" min="0" max="100" step="0.1" disabled />
+            </div>
+            <button id="previewTargetButton" class="primary-action full-width-action" type="button" disabled>Preview target workload mix</button>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="control-row"><h2>Allocation By Facility</h2><strong id="datasetShape">-</strong></div>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Facility</th>
-                  <th>Areas</th>
-                  <th>Visits</th>
-                  <th>Service h</th>
-                  <th>Work share</th>
-                  <th>P95 time</th>
-                  <th>Travel cost</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Facility</th><th>Areas</th><th>Visits</th><th>Provider h</th><th>Work share</th><th>P95 time</th><th>Delivery cost</th></tr></thead>
               <tbody id="allocationBody"></tbody>
             </table>
           </div>
         </section>
 
         <section class="section">
-          <h2>Route Considerations</h2>
+          <h2>Route Notes</h2>
           <div class="table-wrap route-notes-table">
             <table>
-              <thead>
-                <tr>
-                  <th>Postal code</th>
-                  <th>Provider base</th>
-                  <th>Travel time</th>
-                  <th>Road distance</th>
-                  <th>Cost / visit</th>
-                  <th>Consideration</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Postal code</th><th>Provider base</th><th>Travel time</th><th>Road distance</th><th>Cost / visit</th><th>Route note</th></tr></thead>
               <tbody id="routeNotesBody"></tbody>
             </table>
           </div>
@@ -204,19 +201,13 @@
 
         <section class="section">
           <p class="note">
-            Planning model only: travel time and distance come from the OSRM Fraser Health
-            postal-code-to-facility dataset. Demand is modeled as recurring longitudinal
-            home health visit volume, not clinical urgency. Travel costs use one OSRM leg per
-            modeled visit and are comparative estimates rather than complete operating budgets.
+            Planning model only. Travel time and road distance come from the OSRM Fraser Health dataset.
+            The 30-minute default represents care delivered inside the patient home. Costs use one OSRM travel leg per modeled visit.
           </p>
         </section>
       </aside>
     </main>
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
-    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710b"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710d"></script>
   </body>
 </html>

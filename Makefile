@@ -9,6 +9,7 @@ test:
 	python3 scripts/test_postal_reconstruction.py
 	python3 scripts/test_demo_assets.py
 	node demo/assets/test_analytics.mjs
+	node demo/assets/test_planner_worker.mjs
 
 compile:
 	python3 -m py_compile scripts/*.py

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildPlan,
+  buildPlanFromCompactSelections,
   hydrateDemoData,
   mergeControls,
   routeCostPerVisit,
@@ -50,16 +51,34 @@ assert.equal(plan.coverageRate, 1);
 assert.equal(plan.unassigned.length, 0);
 assert.equal(plan.routeNoteCount, 0);
 assert.equal(plan.summaries.find((summary) => summary.facility.id === "A").postalCodeCount, 3);
-assert.equal(plan.totalServiceHours, 2);
+assert.equal(plan.weeklyTravelHours, 0.5);
+assert.equal(plan.weeklyCareHours, 1.5);
+assert.equal(plan.totalProviderHours, 2);
+assert.equal(plan.weeklyTravelCost, 36);
+assert.equal(plan.weeklyDeliveryCost, 126);
 assert.equal(plan.workloadCeilingHours, 2);
 assert.equal(plan.summaries[0].workloadIndex, 1);
 assert.equal(plan.summaries[0].workloadShare, 1);
 assert(plan.summaries.every((summary) => summary.workloadIndex <= 1));
 
-const qaControls = mergeControls(data.defaults, {
+const siteControls = mergeControls(data.defaults, {
   activeFacilityIds: new Set(["A", "B", "C"]),
-  includeQaPenalties: true,
+  siteOverrides: {
+    A: { laborCostPerHour: 30, vehicleCostPerKm: 0.1, visitDurationMin: 45 },
+  },
 });
-assert(routeCostPerVisit(data.postalCodes[2].candidates[2], qaControls) > 16.8);
+assert.equal(routeCostPerVisit(data.postalCodes[0].candidates[0], siteControls), 6);
+const sitePlan = buildPlan(data, siteControls);
+assert.equal(sitePlan.totalProviderHours, 2.75);
+assert.equal(sitePlan.weeklyDeliveryCost, 85.5);
+
+const selectedPlan = buildPlanFromCompactSelections(data, controls, [
+  [1, 12, 12, []],
+  [0, 10, 10, []],
+  [0, 10, 10, []],
+]);
+assert.equal(selectedPlan.assignedPostalCodeCount, 3);
+assert.equal(selectedPlan.summaries.find((summary) => summary.facility.id === "B").postalCodeCount, 1);
+assert.equal(selectedPlan.coverageRate, 1);
 
 console.log("OSRM analytics tests passed");

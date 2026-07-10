@@ -15,6 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "outputs" / "fha_golden_distances_times.csv"
 DEFAULT_OUTPUT = ROOT / "demo" / "data" / "fha-home-health-demo.json"
+DEFAULT_ADVANCED_OUTPUT = ROOT / "demo" / "data" / "fha-home-health-advanced-candidates.json"
 
 DEFAULT_LABOR_COST_PER_HOUR = 60.0
 DEFAULT_GAS_PRICE_PER_LITRE = 1.70
@@ -70,6 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--advanced-output", type=Path, default=DEFAULT_ADVANCED_OUTPUT)
     parser.add_argument("--top-candidates", type=int, default=DEFAULT_TOP_CANDIDATES)
     parser.add_argument("--labor-cost-per-hour", type=float, default=DEFAULT_LABOR_COST_PER_HOUR)
     parser.add_argument("--gas-price-per-litre", type=float, default=DEFAULT_GAS_PRICE_PER_LITRE)
@@ -169,7 +171,7 @@ def compact_facility(row: dict[str, str], color: str) -> list[Any]:
     ]
 
 
-def build_asset(args: argparse.Namespace) -> dict[str, Any]:
+def build_assets(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
     if args.top_candidates < 1:
         raise ValueError("--top-candidates must be at least 1")
     postal_rows: dict[str, list[Any]] = {}
@@ -217,13 +219,7 @@ def build_asset(args: argparse.Namespace) -> dict[str, Any]:
                 round(distance, 2),
                 warning_indexes(row),
             )
-            candidates = routes_by_postal[postal_id]
-            if len(candidates) < args.top_candidates:
-                candidates.append(candidate)
-            else:
-                worst_index, worst = max(enumerate(candidates), key=lambda item: item[1][0])
-                if candidate[0] < worst[0]:
-                    candidates[worst_index] = candidate
+            routes_by_postal[postal_id].append(candidate)
 
     facility_ids = sorted(facility_source_rows)
     facility_index = {facility_id: index for index, facility_id in enumerate(facility_ids)}
@@ -234,16 +230,23 @@ def build_asset(args: argparse.Namespace) -> dict[str, Any]:
     postal_ids = sorted(postal_rows, key=lambda item: postal_rows[item][1])
     postal_codes = [postal_rows[postal_id] for postal_id in postal_ids]
     route_candidates = []
+    advanced_candidates = []
     for postal_id in postal_ids:
         candidates = sorted(routes_by_postal[postal_id], key=lambda item: item[0])
         route_candidates.append(
+            [
+                [facility_index[facility_id], duration, distance, warnings]
+                for _, facility_id, duration, distance, warnings in candidates[: args.top_candidates]
+            ]
+        )
+        advanced_candidates.append(
             [
                 [facility_index[facility_id], duration, distance, warnings]
                 for _, facility_id, duration, distance, warnings in candidates
             ]
         )
 
-    return {
+    asset = {
         "schemaVersion": 1,
         "generatedAt": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "source": {
@@ -258,7 +261,7 @@ def build_asset(args: argparse.Namespace) -> dict[str, Any]:
             "fuelConsumptionLPer100Km": args.fuel_consumption_l_per_100km,
             "maintenanceCostPerKm": args.maintenance_cost_per_km,
             "visitsPerPostalCode": 0.05,
-            "visitDurationMin": 45,
+            "visitDurationMin": 30,
         },
         "warningCatalog": WARNING_CATALOG,
         "columns": {
@@ -278,20 +281,37 @@ def build_asset(args: argparse.Namespace) -> dict[str, Any]:
         "facilities": facilities,
         "candidates": route_candidates,
     }
+    advanced_asset = {
+        "schemaVersion": 1,
+        "generatedAt": asset["generatedAt"],
+        "source": asset["source"],
+        "postalCodeCount": len(postal_codes),
+        "facilityIds": facility_ids,
+        "warningCatalog": WARNING_CATALOG,
+        "candidates": advanced_candidates,
+    }
+    return asset, advanced_asset
 
 
 def main() -> None:
     args = parse_args()
-    asset = build_asset(args)
+    asset, advanced_asset = build_assets(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(asset, separators=(",", ":"), ensure_ascii=False),
         encoding="utf-8",
     )
+    args.advanced_output.parent.mkdir(parents=True, exist_ok=True)
+    args.advanced_output.write_text(
+        json.dumps(advanced_asset, separators=(",", ":"), ensure_ascii=False),
+        encoding="utf-8",
+    )
     print(f"wrote {args.output.relative_to(ROOT)}")
+    print(f"wrote {args.advanced_output.relative_to(ROOT)}")
     print(f"postal codes: {len(asset['postalCodes']):,}")
     print(f"facilities: {len(asset['facilities']):,}")
     print(f"route candidates: {sum(len(item) for item in asset['candidates']):,}")
+    print(f"advanced route candidates: {sum(len(item) for item in advanced_asset['candidates']):,}")
 
 
 if __name__ == "__main__":

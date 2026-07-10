@@ -2,64 +2,77 @@
 
 ## 1. Purpose
 
-The live demo is a management-facing planning view for longitudinal Fraser Health home health visits. It maps every Fraser Health postal code to a provider-base placeholder using OSRM road travel time and distance.
+The live demo is a leadership-facing planning workspace for recurring Fraser Health home health visits. It maps every Fraser Health postal-code area to a provider-base placeholder with OSRM road travel time and distance.
 
-The demo answers:
+It answers:
 
-- Which provider base offers the lowest modeled travel cost for each postal-code area?
-- What travel time, vehicle distance, and comparative travel cost does the resulting territory plan imply?
-- How is modeled weekly work distributed across provider bases?
-- Which routes carry access, terrain, snapping, slow-road, or wilderness considerations?
+- Which provider base has the lowest modeled travel cost for each area?
+- What travel time, road distance, and provider time does the plan imply?
+- How is modeled work distributed across provider bases?
+- What changes when leadership proposes a different visit-share mix?
+- Which routes carry access, terrain, snapping, slow-road, or wilderness notes?
 
-It is not a staffing forecast, clinical triage system, emergency dispatch tool, or appointment sequencer.
+It is not a staffing forecast, clinical triage system, emergency dispatch tool, appointment sequencer, or claim about current facility operations.
 
 ## 2. Source Data
 
-Primary source:
+The rich source is `outputs/fha_golden_distances_times.csv`: 41,176 Fraser Health postal codes, 27 facilities, and 1,111,752 postal-code-to-facility route pairs.
 
-`outputs/fha_golden_distances_times.csv`
+The browser uses:
 
-The source contains 41,176 Fraser Health postal codes, 27 healthcare facilities, and 1,111,752 postal-code-to-facility route pairs. The browser receives a compact top-candidate asset:
+- `demo/data/fha-home-health-demo.json`: compact initial asset with eight candidates per postal code.
+- `demo/data/fha-home-health-advanced-candidates.json`: lazy asset with all 27 candidates per postal code.
 
-`demo/data/fha-home-health-demo.json`
-
-Assignment, ranking, and displayed travel measures must use OSRM `duration_min` and `distance_km`. Haversine or other straight-line distances are not permitted in planning logic or travel KPIs.
+Assignment and displayed travel measures must use OSRM `duration_min` and `distance_km`. Haversine or other straight-line distance is prohibited in planning logic and travel KPIs.
 
 ## 3. Service Model
 
-- Visits are recurring longitudinal home health visits.
-- Demand is a modeled weekly visit multiplier per postal code.
-- Visits are not ranked by clinical urgency.
-- All 27 facilities are provider-base placeholders.
-- All provider bases are assumed able to absorb assigned work.
-- Every postal code remains covered.
-- Real home care stations can later replace the placeholder facilities without changing the assignment logic.
+- Visits are recurring, non-urgent home health visits.
+- Demand is a modeled weekly visit multiplier per postal code; no patient records or mock patients are present.
+- Each facility is a replaceable provider-base placeholder.
+- Every base is assumed able to absorb any assigned volume.
+- Every postal code remains covered in every valid scenario.
+- Real home-care stations can replace facility placeholders without changing the allocation contract.
 
-No facility capacity limit, capacity shortfall, overload state, infeasible state, or staffing availability claim may appear in the demo.
+No capacity limit, shortfall, overload, infeasible state, or staffing-availability claim may appear.
 
-## 4. Assignment Rule
+## 4. Planning Modes
 
-For each postal code:
+### Travel-Efficient Plan
 
-1. Read its available OSRM facility candidates.
-2. Calculate comparative route cost for every candidate.
-3. Select the candidate with the lowest route cost.
-4. Use OSRM duration as the deterministic tie-breaker.
-5. Preserve route considerations for display and optional ranking penalties.
+For each postal code, rank available facilities by one-way travel cost:
 
-The selected plan is already the least-cost plan under this objective. The demo must not offer a second plan that increases total travel cost or travel time under the label "optimized."
+```text
+travel_cost_per_visit =
+  duration_min / 60 * provider_labour_cost_per_hour
+  + distance_km * vehicle_cost_per_km
+```
 
-## 5. Cost Model
+Select the lowest-cost route and use OSRM duration as the deterministic tie-breaker. This is the baseline, not an artificially constrained optimization.
+
+### Target Visit-Share Scenario
+
+Leadership may assign each provider base a target share of all modeled visits.
+
+- `0%` means the base receives no modeled home-care visits.
+- `100%` means the base is the sole provider base and receives every mapped visit.
+- Intermediate edits proportionally normalize all other shares so the total remains 100%.
+- The planner assigns exact postal-code counts by largest-remainder rounding, then chooses the lowest incremental-cost moves needed to meet those counts.
+- Coverage must remain 100%.
+
+A target scenario is a policy/workload preview, not an optimization claim. Always compare its travel cost, travel hours, and reassigned areas with the travel-efficient baseline. Disabling target shares or selecting **Return to travel-efficient plan** restores the baseline immediately.
+
+## 5. Cost And Time Model
 
 Default assumptions:
 
 ```text
-provider_travel_cost_per_hour = 60 CAD
+provider_labour_cost_per_hour = 60 CAD
 gas_price_per_litre = 1.70 CAD
 fuel_consumption_l_per_100km = 11.5
 maintenance_and_amortization_per_km = 0.07 CAD
 weekly_visits_per_postal_code = 0.05
-visit_duration_min = 45
+in_home_visit_duration_min = 30
 ```
 
 Vehicle cost:
@@ -70,140 +83,94 @@ vehicle_cost_per_km =
   + maintenance_and_amortization_per_km
 ```
 
-Comparative route cost per modeled visit:
+Analytics:
 
 ```text
-route_cost =
-  duration_min * provider_travel_cost_per_minute
-  + distance_km * vehicle_cost_per_km
-  + optional_route_consideration_penalty
+weekly_travel_hours = weekly_visits * one_way_duration_min / 60
+weekly_care_hours = weekly_visits * in_home_visit_duration_min / 60
+weekly_provider_hours = weekly_travel_hours + weekly_care_hours
+weekly_travel_cost = weekly_visits * travel_cost_per_visit
+weekly_delivery_cost = weekly_travel_cost
+  + weekly_care_hours * provider_labour_cost_per_hour
 ```
 
-The current model charges one OSRM leg per modeled visit. The UI must call the result an **estimated weekly travel cost** and disclose that it is a comparative estimate rather than a complete operating budget.
+The model charges one OSRM travel leg per visit. The UI must describe costs as estimates, not a complete operating budget.
 
-## 6. Workload Analytics
+## 6. Global And Per-Base Assumptions
 
-Service hours are descriptive analytics only:
+Global controls set labour cost, gas price, fuel consumption, maintenance/amortization, weekly visits, and in-home visit duration.
+
+For a selected provider base, leadership can override:
+
+- provider labour cost per hour
+- vehicle cost per kilometre
+- in-home visit duration
+
+Per-base labour and vehicle values affect route choice and cost. Per-base in-home duration affects provider-hours and delivery-cost analytics but not OSRM routing. **Use global values for this base** removes all overrides for the selected base.
+
+## 7. Workload Analytics
+
+For every active base, report assigned areas, weekly visits, provider hours, visit/work share, P95 one-way time, and estimated delivery cost. Hours are analytics only, not a capacity ceiling.
+
+Facility marker size uses:
 
 ```text
-weekly_service_hours =
-  weekly_visits * (visit_duration_min + one_way_duration_min) / 60
+workload_index = facility_provider_hours / maximum_facility_provider_hours
 ```
 
-For every facility, report:
+The busiest active base has index `1.0`. A base with no assigned visits is omitted from the allocation table and facility workload markers but remains selectable for a future target scenario.
 
-- assigned postal-code areas
-- modeled weekly visits
-- modeled weekly service hours
-- share of total modeled service hours
-- P95 one-way travel time
-- estimated weekly travel cost
+## 8. Map Interaction
 
-The workload map uses a dynamic display scale:
+- Postal-code dots use the selected base color and retain a visual radius of `2.8` pixels.
+- A 14-pixel map hit tolerance makes compact postal dots practical to click without enlarging them.
+- A selected postal code receives a temporary outline only.
+- Shared coordinates are grouped and expose a postal-code selector in the card.
+- Postal cards show postal code and ID, provider base, OSRM time, road distance, travel cost, in-home duration, provider time, delivery cost, weekly visits, and route notes.
+- Provider-base circles sit above postal dots and scale with workload index.
 
-```text
-workload_scale_ceiling = maximum facility weekly_service_hours
-facility_workload_index = facility weekly_service_hours / workload_scale_ceiling
-```
+## 9. Route Notes
 
-The busiest facility therefore has an index of `1.0`, every other facility is between `0.0` and `1.0`, and marker size reflects relative workload. This ceiling is visual only and must never be described as capacity or availability.
+Supported notes include snap distance, long route, slow road, high circuity, forest/service road, wilderness access, terrain, and detailed-review signals.
 
-## 7. Map
+The route-note checkbox and type menu are visual review tools only. They highlight the map and filter the table; they must not modify route ranking, assignments, costs, or target shares.
 
-- Postal-code dots use the color of their selected provider base.
-- Provider-base circles are drawn above postal-code dots.
-- Provider-base circle size reflects the dynamic workload index.
-- Facility popups show modeled weekly service hours and workload share.
-- Postal-code popups show provider base, OSRM travel time, road distance, comparative cost per visit, weekly visits, and route considerations.
-- Route considerations may receive a restrained outline but must not use hostile or alarming language.
+## 10. Language
 
-## 8. Leadership-Facing Language
+Use calm, descriptive terms such as `Travel-efficient plan`, `Target workload scenario`, `Coverage mapped`, `Areas mapped`, `Provider hours`, `Workload distribution`, and `Route notes`.
 
-Use:
+Do not use `shortfall`, `overloaded`, `not feasible`, `failure`, `bad plan`, or `optimized plan` for a target scenario that may cost more than baseline.
 
-- `Travel-efficient plan`
-- `Coverage mapped`
-- `Areas mapped`
-- `Estimated weekly travel cost`
-- `Modeled service hours`
-- `Areas with route notes`
-- `Workload distribution`
-- `Route considerations`
+## 11. Performance
 
-Do not use:
+- The initial view loads the compact asset and calculates in the main page.
+- Advanced per-site routing and target-share work lazy-loads the full candidate asset in a Web Worker.
+- Worker status is visible as loading/calculating text.
+- Only compact selected rows return from the worker.
+- Recalculation must not freeze map controls for the duration of advanced planning.
 
-- `shortfall`
-- `overloaded`
-- `not feasible`
-- `failure`
-- `exception`
-- `bad plan`
-- `optimized plan` when no strictly better plan exists
+## 12. Acceptance Criteria
 
-## 9. Controls
-
-Retain controls for:
-
-- provider travel cost per hour
-- gas price per litre
-- fuel consumption
-- maintenance and amortization per kilometre
-- weekly visits per postal code
-- visit duration
-- optional inclusion of route considerations in facility ranking
-
-Do not expose capacity, overload, infeasibility, extra-distance guardrails, or cost-penalty guardrails in this version.
-
-## 10. Route Considerations
-
-The compact asset may include:
-
-- snap warning
-- long route
-- very long route
-- slow route
-- very slow route
-- high circuity
-- forest/service road
-- wilderness access
-- terrain warning
-- route detail warning
-
-Present these as operational notes. They remain visible even when they do not affect ranking.
-
-## 11. Acceptance Criteria
-
-- All 41,176 postal codes are assigned when the complete demo asset is loaded.
-- Coverage is displayed as 100%.
+- All 41,176 postal codes are assigned and coverage displays as 100%.
 - No straight-line distance is used.
-- No capacity, shortfall, overload, infeasible, or negative recommendation language appears.
-- No alternative plan can replace the lowest-cost plan with a more expensive result.
-- Facility workload shares sum to 100% within floating-point tolerance.
-- Facility workload indexes are between 0 and 1.
-- At least one active facility has workload index 1 when assignments exist.
-- Changing visit assumptions updates service hours and workload marker sizes.
-- Changing cost assumptions can change lowest-cost assignments when candidate rankings change.
-- Route considerations remain available for review.
-- Desktop and mobile layouts remain usable without overlapping controls or text.
+- Default in-home care is 30 minutes and is distinct from travel time.
+- A selected base can reach exactly 0% or 100% visit share while coverage remains 100%.
+- At 100%, the selected base is the only allocation row and receives all 41,176 areas.
+- Target shares total 100% within rounding tolerance.
+- Route-note filters do not alter travel cost or assignments.
+- Postal cards open without increasing postal-dot visual radius.
+- Shared-coordinate postal cards permit selecting each postal code at that coordinate.
+- Site labour/vehicle overrides can alter route choice; site in-home duration updates analytics.
+- Disabling target shares restores the travel-efficient plan.
+- No capacity, shortfall, overload, infeasibility, or hostile recommendation language appears.
+- Desktop and mobile layouts have no incoherent overlap or horizontal overflow.
 
-## 12. Reproduction
-
-Regenerate the compact asset:
+## 13. Reproduction
 
 ```bash
 python3 scripts/build_fha_home_health_demo_assets.py
-```
-
-Run tests:
-
-```bash
 make test
 make compile
-```
-
-Run locally:
-
-```bash
 cd demo
 python3 -m http.server 8000
 ```

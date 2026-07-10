@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET = ROOT / "demo" / "data" / "fha-home-health-demo.json"
+ADVANCED_ASSET = ROOT / "demo" / "data" / "fha-home-health-advanced-candidates.json"
 
 
 def test_osrm_demo_asset_shape() -> None:
@@ -20,6 +21,7 @@ def test_osrm_demo_asset_shape() -> None:
     assert len(asset["postalCodes"]) == 41_176
     assert len(asset["facilities"]) == 27
     assert len(asset["candidates"]) == len(asset["postalCodes"])
+    assert asset["defaults"]["visitDurationMin"] == 30
     assert set(asset["defaults"]) >= {
         "laborCostPerHour",
         "gasPricePerLitre",
@@ -80,8 +82,20 @@ def test_no_legacy_demo_assets_required() -> None:
     assert not any(path.exists() for path in legacy_assets)
 
 
+def test_advanced_candidate_asset_shape() -> None:
+    asset = json.loads(ADVANCED_ASSET.read_text(encoding="utf-8"))
+    assert asset["schemaVersion"] == 1
+    assert asset["postalCodeCount"] == 41_176
+    assert len(asset["facilityIds"]) == 27
+    assert len(asset["facilityIds"]) == len(set(asset["facilityIds"]))
+    assert len(asset["candidates"]) == asset["postalCodeCount"]
+    assert sum(len(rows) for rows in asset["candidates"]) == 1_111_752
+    assert all(len(rows) == 27 for rows in asset["candidates"])
+
+
 if __name__ == "__main__":
     test_osrm_demo_asset_shape()
     test_osrm_demo_asset_references_are_valid()
     test_no_legacy_demo_assets_required()
+    test_advanced_candidate_asset_shape()
     print("demo asset tests passed")
