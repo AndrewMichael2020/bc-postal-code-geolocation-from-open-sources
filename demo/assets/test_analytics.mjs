@@ -4,6 +4,7 @@ import {
   buildPlanFromCompactSelections,
   hydrateDemoData,
   mergeControls,
+  remixTargetShares,
   routeCostPerVisit,
   vehicleCostPerKm,
 } from "./analytics.js";
@@ -85,5 +86,20 @@ assert.equal(selectedPlan.summaries.find((summary) => summary.facility.id === "B
 assert.equal(selectedPlan.activeFacilityCount, 2);
 assert.equal(selectedPlan.availableFacilityCount, 3);
 assert.equal(selectedPlan.coverageRate, 1);
+
+const facilityIds = ["A", "B", "C", "D"];
+let mixed = remixTargetShares(facilityIds, { A: 0.4, B: 0.3, C: 0.2, D: 0.1 }, new Set(), "A", 0.2);
+mixed = remixTargetShares(facilityIds, mixed.targetShares, mixed.lockedIds, "B", 0.3);
+assert.equal(mixed.targetShares.A, 0.2);
+assert.equal(mixed.targetShares.B, 0.3);
+assert(Math.abs(Object.values(mixed.targetShares).reduce((sum, share) => sum + share, 0) - 1) < 1e-12);
+mixed = remixTargetShares(facilityIds, mixed.targetShares, mixed.lockedIds, "C", 1);
+assert.equal(mixed.targetShares.A, 0.2);
+assert.equal(mixed.targetShares.B, 0.3);
+assert.equal(mixed.targetShares.C, 0.5);
+assert.equal(mixed.targetShares.D, 0);
+mixed = remixTargetShares(facilityIds, mixed.targetShares, mixed.lockedIds, "D", 0.2);
+assert.equal(mixed.targetShares.D, 0);
+assert(Math.abs(Object.values(mixed.targetShares).reduce((sum, share) => sum + share, 0) - 1) < 1e-12);
 
 console.log("OSRM analytics tests passed");

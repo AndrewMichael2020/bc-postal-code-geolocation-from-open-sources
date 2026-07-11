@@ -56,7 +56,10 @@ Leadership may assign each provider base a target share of all modeled visits.
 
 - `0%` means the base receives no modeled home-care visits.
 - `100%` means the base is the sole provider base and receives every mapped visit.
-- Intermediate edits proportionally normalize all other shares so the total remains 100%.
+- The expandable all-base editor shows current and proposed shares together before preview.
+- Manually edited bases remain fixed while untouched bases proportionally absorb the remaining share, allowing several deliberate edits without earlier choices drifting.
+- Proposed shares always total 100%; if manually fixed shares consume the total, untouched bases become 0%.
+- Resetting target shares restores the travel-efficient plan mix.
 - The planner assigns exact postal-code counts by largest-remainder rounding, uses a travel-cost-aware greedy allocation, and then applies bounded count-preserving pair swaps to remove obvious local cost inefficiencies. This is a responsive scenario heuristic, not a claim of globally optimal territory scheduling.
 - Coverage must remain 100%.
 
@@ -155,6 +158,7 @@ Do not use `shortfall`, `overloaded`, `not feasible`, `failure`, `bad plan`, or 
 - No straight-line distance is used.
 - Default in-home care is 30 minutes and is distinct from travel time.
 - A selected base can reach exactly 0% or 100% visit share while coverage remains 100%.
+- Multiple manually edited base shares remain fixed while untouched shares remix to a 100% total.
 - At 100%, the selected base is the only allocation row and receives all 41,176 areas.
 - Target shares total 100% within rounding tolerance.
 - Route-note filters do not alter travel cost or assignments.

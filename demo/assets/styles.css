@@ -681,6 +681,90 @@ select:focus-visible {
   border-top: 1px solid var(--line);
 }
 
+.target-share-details {
+  border-top: 1px solid var(--line);
+}
+
+.target-share-details summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.target-share-details summary strong {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: right;
+}
+
+.target-share-table-wrap {
+  max-height: 430px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.target-share-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+}
+
+.target-share-table th:first-child,
+.target-share-table td:first-child {
+  width: 42%;
+  white-space: normal;
+}
+
+.target-share-table th:nth-child(2),
+.target-share-table td:nth-child(2) {
+  width: 12%;
+  text-align: right;
+}
+
+.target-share-table th:last-child,
+.target-share-table td:last-child {
+  width: 46%;
+  text-align: right;
+}
+
+.target-share-table tr.manually-set {
+  background: #ecfdf5;
+}
+
+.target-facility-button {
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.target-facility-button:hover {
+  color: var(--accent);
+}
+
+.target-share-row-control {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.target-share-row-control input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.target-share-details > button {
+  margin-top: 9px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);

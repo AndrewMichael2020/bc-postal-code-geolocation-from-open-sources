@@ -3,9 +3,10 @@ import {
   buildPlanFromCompactSelections,
   hydrateDemoData,
   mergeControls,
+  remixTargetShares,
   siteAssumptions,
   vehicleCostPerKm,
-} from "./analytics.js?v=osrm-home-health-20260710g";
+} from "./analytics.js?v=osrm-home-health-20260710h";
 
 const state = {
   data: null,
@@ -15,6 +16,8 @@ const state = {
   advancedSelections: null,
   siteOverrides: {},
   targetShares: {},
+  lockedTargetFacilityIds: new Set(),
+  targetShareRows: new Map(),
   targetMixEnabled: false,
   targetMixApplied: false,
   selectedFacilityId: null,
@@ -405,6 +408,55 @@ function initializeTargetShares(plan) {
       return [facility.id, summary?.visitShare ?? 0];
     })
   );
+  state.lockedTargetFacilityIds.clear();
+}
+
+function maxTargetShare(facilityId) {
+  const otherLockedTotal = [...state.lockedTargetFacilityIds]
+    .filter((id) => id !== facilityId)
+    .reduce((sum, id) => sum + (state.targetShares[id] ?? 0), 0);
+  return Math.max(0, 1 - otherLockedTotal);
+}
+
+function initializeTargetShareTable() {
+  const tbody = document.getElementById("targetShareBody");
+  const facilities = [...state.data.facilities].sort((a, b) => a.name.localeCompare(b.name));
+  for (const facility of facilities) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><button class="target-facility-button" type="button"><span class="swatch" style="background:${facility.color}"></span>${escapeHtml(facility.name)}</button></td>
+      <td><output class="target-current-share">0.0%</output></td>
+      <td><div class="target-share-row-control"><input type="range" min="0" max="100" step="0.1" aria-label="${escapeHtml(facility.name)} target visit share" /><output>0.0%</output></div></td>`;
+    const input = tr.querySelector("input");
+    const outputs = tr.querySelectorAll("output");
+    tr.querySelector("button").addEventListener("click", () => selectFacility(facility.id));
+    input.addEventListener("input", () => adjustTargetShare(facility.id, Number(input.value)));
+    tbody.append(tr);
+    state.targetShareRows.set(facility.id, {
+      row: tr,
+      input,
+      currentOutput: outputs[0],
+      targetOutput: outputs[1],
+    });
+  }
+}
+
+function updateTargetShareTable() {
+  if (!state.currentPlan || !state.targetShareRows.size) return;
+  for (const facility of state.data.facilities) {
+    const controls = state.targetShareRows.get(facility.id);
+    const summary = state.currentPlan.summaries.find((item) => item.facility.id === facility.id);
+    const target = state.targetShares[facility.id] ?? 0;
+    controls.currentOutput.textContent = formatPercent.format(summary?.visitShare ?? 0);
+    controls.targetOutput.textContent = `${formatOne.format(target * 100)}%`;
+    controls.input.max = (maxTargetShare(facility.id) * 100).toFixed(1);
+    controls.input.value = (target * 100).toFixed(1);
+    controls.input.disabled = !state.targetMixEnabled;
+    controls.row.classList.toggle("manually-set", state.lockedTargetFacilityIds.has(facility.id));
+  }
+  const editedCount = state.lockedTargetFacilityIds.size;
+  setText("targetShareEditedCount", editedCount ? `${editedCount} manually set` : "Default mix");
+  setText("targetShareTotal", formatPercent.format(Object.values(state.targetShares).reduce((a, b) => a + b, 0)));
 }
 
 function updateSiteEditor() {
@@ -413,18 +465,21 @@ function updateSiteEditor() {
   const assumptions = siteAssumptions(facility, state.controls);
   const override = state.siteOverrides[facility.id] ?? {};
   const summary = state.currentPlan.summaries.find((item) => item.facility.id === facility.id);
+  const targetShareInput = document.getElementById("targetShare");
   document.getElementById("siteLaborCostPerHour").value = String(assumptions.laborCostPerHour);
   document.getElementById("siteVehicleCostPerKm").value = String(assumptions.vehicleCostPerKm);
   document.getElementById("siteVisitDurationMin").value = String(assumptions.visitDurationMin);
-  document.getElementById("targetShare").value = String((state.targetShares[facility.id] ?? 0) * 100);
+  targetShareInput.max = (maxTargetShare(facility.id) * 100).toFixed(1);
+  targetShareInput.value = ((state.targetShares[facility.id] ?? 0) * 100).toFixed(1);
   setText("siteLaborCostValue", formatMoney.format(assumptions.laborCostPerHour));
   setText("siteVehicleCostValue", `${formatMoneyOne.format(assumptions.vehicleCostPerKm)}/km`);
   setText("siteVisitDurationValue", `${formatNumber.format(assumptions.visitDurationMin)} min`);
   setText("siteCurrentShare", formatPercent.format(summary?.visitShare ?? 0));
   setText("targetShareValue", `${formatOne.format((state.targetShares[facility.id] ?? 0) * 100)}%`);
   setText("siteOverrideStatus", Object.keys(override).length ? "Site values" : "Global values");
-  document.getElementById("targetShare").disabled = !state.targetMixEnabled;
+  targetShareInput.disabled = !state.targetMixEnabled;
   document.getElementById("previewTargetButton").disabled = !state.targetMixEnabled;
+  updateTargetShareTable();
 }
 
 function selectFacility(facilityId) {
@@ -446,7 +501,7 @@ function renderAll(result, { renderMapNow = true } = {}) {
 
 function workerInstance() {
   if (!state.worker) {
-    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710g");
+    state.worker = new Worker("./assets/planner-worker.js?v=osrm-home-health-20260710h");
     state.worker.addEventListener("message", (event) => {
       const pending = state.workerPending.get(event.data.requestId);
       if (!pending) return;
@@ -543,21 +598,21 @@ function resetSelectedSite() {
 }
 
 function adjustTargetShare(facilityId, nextPercent) {
-  const nextShare = Math.max(0, Math.min(1, nextPercent / 100));
-  const previousShare = state.targetShares[facilityId] ?? 0;
-  const remaining = 1 - nextShare;
-  const previousRemaining = 1 - previousShare;
-  const otherFacilities = state.data.facilities.filter((facility) => facility.id !== facilityId);
-  if (previousRemaining > 0) {
-    for (const facility of otherFacilities) {
-      state.targetShares[facility.id] = (state.targetShares[facility.id] ?? 0) * (remaining / previousRemaining);
-    }
-  } else {
-    for (const facility of otherFacilities) state.targetShares[facility.id] = remaining / otherFacilities.length;
-  }
-  state.targetShares[facilityId] = nextShare;
+  const remixed = remixTargetShares(
+    state.data.facilities.map((facility) => facility.id),
+    state.targetShares,
+    state.lockedTargetFacilityIds,
+    facilityId,
+    nextPercent / 100
+  );
+  state.targetShares = remixed.targetShares;
+  state.lockedTargetFacilityIds = remixed.lockedIds;
   updateSiteEditor();
-  setText("targetShareTotal", formatPercent.format(Object.values(state.targetShares).reduce((a, b) => a + b, 0)));
+}
+
+function resetTargetShares() {
+  initializeTargetShares(state.referencePlan ?? state.currentPlan);
+  updateSiteEditor();
 }
 
 async function previewTargetMix() {
@@ -641,17 +696,23 @@ async function init() {
   });
   document.getElementById("enableTargetMix").addEventListener("change", async (event) => {
     state.targetMixEnabled = event.target.checked;
-    if (!state.targetMixEnabled && state.targetMixApplied) await returnToTravelPlan();
+    if (!state.targetMixEnabled && state.targetMixApplied) {
+      await returnToTravelPlan();
+    } else if (!state.targetMixEnabled) {
+      initializeTargetShares(state.referencePlan ?? state.currentPlan);
+    }
     updateSiteEditor();
   });
   document.getElementById("targetShare").addEventListener("input", (event) =>
     adjustTargetShare(state.selectedFacilityId, Number(event.target.value))
   );
   document.getElementById("previewTargetButton").addEventListener("click", previewTargetMix);
+  document.getElementById("resetTargetSharesButton").addEventListener("click", resetTargetShares);
   document.getElementById("returnTravelPlanButton").addEventListener("click", returnToTravelPlan);
 
   await recalculatePlans();
   initializeTargetShares(state.currentPlan);
+  initializeTargetShareTable();
   setText("targetShareTotal", "100%");
   updateSiteEditor();
   document.body.classList.add("ready");

@@ -34,6 +34,29 @@ export function siteAssumptions(facility, controls) {
   };
 }
 
+export function remixTargetShares(facilityIds, targetShares, lockedIds, facilityId, nextShare) {
+  const shares = { ...targetShares };
+  const locked = new Set(lockedIds);
+  locked.add(facilityId);
+  const otherLockedTotal = [...locked]
+    .filter((id) => id !== facilityId)
+    .reduce((sum, id) => sum + (shares[id] ?? 0), 0);
+  shares[facilityId] = Math.max(0, Math.min(1 - otherLockedTotal, nextShare));
+
+  const lockedTotal = [...locked].reduce((sum, id) => sum + (shares[id] ?? 0), 0);
+  const unlockedIds = facilityIds.filter((id) => !locked.has(id));
+  const remaining = Math.max(0, 1 - lockedTotal);
+  const previousUnlockedTotal = unlockedIds.reduce((sum, id) => sum + (shares[id] ?? 0), 0);
+  if (unlockedIds.length && previousUnlockedTotal > 0) {
+    for (const id of unlockedIds) shares[id] = (shares[id] ?? 0) * (remaining / previousUnlockedTotal);
+  } else if (unlockedIds.length) {
+    for (const id of unlockedIds) shares[id] = remaining / unlockedIds.length;
+  } else {
+    shares[facilityId] += remaining;
+  }
+  return { targetShares: shares, lockedIds: locked };
+}
+
 export function laborCostPerMinute(controls, facility = null) {
   const hourly = facility ? siteAssumptions(facility, controls).laborCostPerHour : controls.laborCostPerHour;
   return hourly / 60;

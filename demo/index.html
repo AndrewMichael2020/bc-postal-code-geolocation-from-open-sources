@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Health Authority Home Health Territory Planner Prototype (no private or proprietary data)</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710g" />
+    <link rel="stylesheet" href="./assets/styles.css?v=osrm-home-health-20260710h" />
   </head>
   <body>
     <main class="app-shell">
@@ -176,6 +176,16 @@
               <label for="targetShare">Selected-base target share <output id="targetShareValue">0.0%</output></label>
               <input id="targetShare" type="range" min="0" max="100" step="0.1" disabled />
             </div>
+            <details class="target-share-details">
+              <summary><span>All provider-base target shares</span><strong id="targetShareEditedCount">Default mix</strong></summary>
+              <div class="target-share-table-wrap">
+                <table class="target-share-table">
+                  <thead><tr><th>Provider base</th><th>Current</th><th>Target</th></tr></thead>
+                  <tbody id="targetShareBody"></tbody>
+                </table>
+              </div>
+              <button id="resetTargetSharesButton" class="secondary-action full-width-action" type="button">Reset target shares</button>
+            </details>
             <button id="previewTargetButton" class="primary-action full-width-action" type="button" disabled>Preview target workload mix</button>
           </div>
         </section>
@@ -209,6 +219,6 @@
       </aside>
     </main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710g"></script>
+    <script type="module" src="./assets/app.js?v=osrm-home-health-20260710h"></script>
   </body>
 </html>
